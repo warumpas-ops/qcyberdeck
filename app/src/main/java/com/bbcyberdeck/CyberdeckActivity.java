@@ -1,6 +1,9 @@
 package com.bbcyberdeck;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
 import android.os.Bundle;
 import android.view.GestureDetector;
 import android.view.KeyEvent;
@@ -13,7 +16,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class CyberdeckActivity extends Activity {
@@ -124,7 +129,7 @@ public class CyberdeckActivity extends Activity {
         }
     }
 
-    // --- Line Editing & Instant Echo ---
+    // --- Line Editing & Commands Execution ---
 
     private void onCharInput(char c) {
         mInputLine.append(c);
@@ -140,6 +145,11 @@ public class CyberdeckActivity extends Activity {
         }
     }
 
+    private void printPrompt() {
+        byte[] p = "\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ".getBytes();
+        mTerminalView.appendOutput(p, 0, p.length);
+    }
+
     private void onEnter() {
         String cmd = mInputLine.toString().trim();
         mInputLine.setLength(0);
@@ -152,14 +162,148 @@ public class CyberdeckActivity extends Activity {
         mTerminalView.scrollToBottom();
         mTerminalView.appendOutput(new byte[]{'\r', '\n'}, 0, 2);
 
-        if (mSession != null) {
-            if (cmd.length() > 0) {
-                // Execute command and print clean prompt WITHOUT trailing newline so cursor is inline
-                mSession.write(cmd + "\nprintf \"\\033[1;32mroot@q5\\033[0m:\\033[1;34m~#\\033[0m \"\n");
+        if (cmd.isEmpty()) {
+            printPrompt();
+            return;
+        }
+
+        // --- In-Memory ASCII and Hardware Utilities (Instant, 0% failure) ---
+
+        if (cmd.equals("skull")) {
+            String skull =
+                "\r\n\u001B[1;31m" +
+                "          .---.\r\n" +
+                "         /     \\\r\n" +
+                "        | () () |\r\n" +
+                "         \\  ^  /\r\n" +
+                "          |||||\r\n" +
+                "      .---'---'---.\r\n" +
+                "     /  CYBERDECK  \\\r\n" +
+                "    |  ROOT ACCESS  |\r\n" +
+                "     \\_____________/\r\n" +
+                "\u001B[0m\r\n";
+            byte[] b = skull.getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.startsWith("cowsay")) {
+            String msg = cmd.length() > 6 ? cmd.substring(6).trim() : "QCyberdeck online.";
+            if (msg.isEmpty()) msg = "QCyberdeck online.";
+            StringBuilder sb = new StringBuilder("\r\n ");
+            for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+            sb.append("\r\n< ").append(msg).append(" >\r\n ");
+            for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+            sb.append("\r\n        \\   ^__^\r\n");
+            sb.append("         \\  (oo)\\_______\r\n");
+            sb.append("            (__)\\       )\\/\\\r\n");
+            sb.append("                ||----w |\r\n");
+            sb.append("                ||     ||\r\n\r\n");
+            byte[] b = sb.toString().getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("deck")) {
+            String deck =
+                "\r\n" +
+                "   .------------------------.\r\n" +
+                "   | [=] QCYBERDECK    100% |\r\n" +
+                "   |------------------------|\r\n" +
+                "   | root@q5:~# _           |\r\n" +
+                "   | Linux 3.4 MSM8960 2GB  |\r\n" +
+                "   |========================|\r\n" +
+                "   | [Q][W][E][R][T][Y] ... |\r\n" +
+                "   | [A][S][D][F][G][H] ... |\r\n" +
+                "   | [ALT][Z][X][C][V] [ENT]|\r\n" +
+                "   '------------------------'\r\n\r\n";
+            byte[] b = deck.getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("clock")) {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss z");
+            String clock = "\r\n  System Time : " + sdf.format(new Date()) + "\r\n\r\n";
+            byte[] b = clock.getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("battery") || cmd.equals("dumpsys battery")) {
+            IntentFilter ifilter = new IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+            Intent bIntent = registerReceiver(null, ifilter);
+            StringBuilder sb = new StringBuilder("\r\n=== BlackBerry Q5 Battery Telemetry ===\r\n");
+            if (bIntent != null) {
+                int level = bIntent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+                int scale = bIntent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+                int status = bIntent.getIntExtra(BatteryManager.EXTRA_STATUS, -1);
+                int health = bIntent.getIntExtra(BatteryManager.EXTRA_HEALTH, -1);
+                int temp = bIntent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                int voltage = bIntent.getIntExtra(BatteryManager.EXTRA_VOLTAGE, -1);
+
+                String statusStr = (status == BatteryManager.BATTERY_STATUS_CHARGING) ? "Charging" :
+                                   (status == BatteryManager.BATTERY_STATUS_FULL) ? "Full" : "Discharging";
+                String healthStr = (health == BatteryManager.BATTERY_HEALTH_GOOD) ? "Good" : "Normal";
+                int pct = (scale > 0) ? (level * 100) / scale : level;
+
+                sb.append("  Charge Level : ").append(pct).append("%\r\n");
+                sb.append("  Status       : ").append(statusStr).append("\r\n");
+                sb.append("  Voltage      : ").append(voltage).append(" mV\r\n");
+                sb.append("  Temperature  : ").append(temp / 10.0f).append(" °C\r\n");
+                sb.append("  Health       : ").append(healthStr).append("\r\n");
+                sb.append("  Technology   : Li-ion (2180 mAh)\r\n");
             } else {
-                byte[] p = "\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ".getBytes();
-                mTerminalView.appendOutput(p, 0, p.length);
+                sb.append("  Unable to query battery sensor.\r\n");
             }
+            sb.append("=======================================\r\n\r\n");
+            byte[] b = sb.toString().getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("whoami")) {
+            byte[] b = "root\r\n".getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("id")) {
+            byte[] b = "uid=0(root) gid=0(root) groups=0(root)\r\n".getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("help")) {
+            String help =
+                "\r\n================================================\r\n" +
+                "  QCyberdeck Commands Reference\r\n" +
+                "================================================\r\n" +
+                "  Telemetry: battery, sysinfo, uname -a, uptime, free, df -h\r\n" +
+                "  Identity : whoami, id\r\n" +
+                "  ASCII    : skull, cowsay <msg>, deck, clock, matrix\r\n" +
+                "  Files    : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
+                "  Network  : ifconfig, netstat, ping, nc, wget\r\n" +
+                "  Archives : tar -czvf, gzip\r\n" +
+                "  Tools    : grep, awk, sed, find, strings, hexdump\r\n" +
+                "  All 350+ : busybox --help\r\n" +
+                "================================================\r\n\r\n";
+            byte[] b = help.getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        // Forward general Unix commands to the real Linux shell
+        if (mSession != null) {
+            mSession.write(cmd + "\nprintf \"\\033[1;32mroot@q5\\033[0m:\\033[1;34m~#\\033[0m \"\n");
         }
     }
 
