@@ -108,8 +108,19 @@ public class TerminalSession {
                     mStdout  = mProcess.getInputStream();
                     mRunning = true;
 
-                    // Clean startup header with initial prompt
-                    emit("\u001B[1;32mQ5 Terminal\u001B[0m [MSM8960 / ARMv7]\r\nType 'help' or any command.\r\n\r\n\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ");
+                    // Clean startup header with full device specs and initial prompt
+                    String banner =
+                        "\u001B[1;32m================================================\u001B[0m\r\n" +
+                        "\u001B[1;32m  QCyberdeck - BlackBerry Q5 Linux Terminal\u001B[0m\r\n" +
+                        "\u001B[1;32m================================================\u001B[0m\r\n" +
+                        "  Device   : BlackBerry Q5 (Qualcomm MSM8960 2GB)\r\n" +
+                        "  Core     : BusyBox Linux (350+ Unix Utilities)\r\n" +
+                        "  Storage  : /sdcard & app storage mounted\r\n" +
+                        "  Status   : \u001B[1;32mONLINE [ROOT: UID 0]\u001B[0m\r\n" +
+                        "  Commands : type 'help' for quick reference\r\n" +
+                        "\u001B[1;32m------------------------------------------------\u001B[0m\r\n\r\n" +
+                        "\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ";
+                    emit(banner);
 
                     // Switch working directory silently
                     new Thread(new Runnable() {
