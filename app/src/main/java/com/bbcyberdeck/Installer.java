@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v9: Added cowsay, skull, deck, hack, train, clock ASCII utilities
-    private static final String VERSION_MARKER = ".installed_v9";
+    // Version v10: Added tree command
+    private static final String VERSION_MARKER = ".installed_v10";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -179,6 +179,17 @@ public class Installer {
                         "echo \"  Date   : $(date +'%A, %B %d, %Y')\"\n" +
                         "echo \"  Time   : $(date +'%H:%M:%S %Z')\"\n" +
                         "echo \"  Uptime : $(uptime | sed 's/.*up \\([^,]*\\), .*/\\1/' 2>/dev/null)\"\n"
+                    );
+
+                    // tree (Directory hierarchy visualizer)
+                    writeExecutableScript(new File(binDir, "tree"),
+                        "#!/system/bin/sh\n" +
+                        "if [ -x \"" + busyboxFile.getAbsolutePath() + "\" ] && \"" + busyboxFile.getAbsolutePath() + "\" tree \"$@\" 2>/dev/null; then\n" +
+                        "    exit 0\n" +
+                        "fi\n" +
+                        "TARGET=\"${1:-.}\"\n" +
+                        "echo \"$TARGET\"\n" +
+                        "find \"$TARGET\" -maxdepth 3 2>/dev/null | sed -e 's/[^-][^\\/]*\\// |-- /g' -e 's/|-- \\([^ ]\\)/+-- \\1/'\n"
                     );
 
                     // sysinfo (Hardware telemetry)
