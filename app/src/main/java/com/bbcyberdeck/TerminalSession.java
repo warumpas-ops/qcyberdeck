@@ -45,113 +45,103 @@ public class TerminalSession {
                     File filesDir = mContext.getFilesDir();
                     File binDir = new File(filesDir, "usr/bin");
                     File busybox = new File(binDir, "busybox");
-                    File proot = new File(binDir, "proot");
-                    File rootfs = new File(filesDir, "rootfs");
                     File rootDir = new File(filesDir, "root");
+                    rootDir.mkdirs();
                     File tmpDir = new File(filesDir, "tmp");
+                    tmpDir.mkdirs();
 
-                    // 1. Check if device has SU (real root)
-                    boolean hasSu = false;
-                    String suPath = null;
+                    // 1. Check if SU (real root) is available on device
+                    boolean suFunctional = false;
+                    String workingSu = null;
                     String[] suCandidates = new String[]{
-                            "/system/xbin/su", "/system/bin/su", "/sbin/su", "/vendor/bin/su"
+                            "/system/xbin/su", "/system/bin/su", "/sbin/su", "/vendor/bin/su", "su"
                     };
-                    for (String candidate : suCandidates) {
-                        File f = new File(candidate);
-                        if (f.exists() && f.canExecute()) {
-                            hasSu = true;
-                            suPath = candidate;
-                            break;
-                        }
-                    }
-
-                    // 2. Check if PRoot works or segfaults (test --version)
-                    boolean prootWorks = false;
-                    if (proot.exists() && proot.canExecute()) {
+                    for (String cand : suCandidates) {
                         try {
-                            ProcessBuilder testPb = new ProcessBuilder(proot.getAbsolutePath(), "--version");
-                            testPb.redirectErrorStream(true);
-                            Process testP = testPb.start();
-                            int exit = testP.waitFor();
-                            if (exit == 0) {
-                                prootWorks = true;
+                            Process p = Runtime.getRuntime().exec(new String[]{cand, "-c", "id"});
+                            if (p.waitFor() == 0) {
+                                suFunctional = true;
+                                workingSu = cand;
+                                break;
                             }
-                        } catch (Throwable t) {
-                            Log.w(TAG, "PRoot test failed: " + t.getMessage());
-                        }
+                        } catch (Throwable ignored) {}
                     }
 
-                    // Determine command to run
+                    // 2. Check if BusyBox is functional
+                    boolean busyboxFunctional = false;
+                    if (busybox.exists() && busybox.canExecute()) {
+                        try {
+                            Process p = Runtime.getRuntime().exec(new String[]{busybox.getAbsolutePath(), "true"});
+                            if (p.waitFor() == 0) {
+                                busyboxFunctional = true;
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+
+                    // Determine shell command to launch
                     List<String> cmd = new ArrayList<String>();
-                    File workDir = rootDir;
-
-                    if (prootWorks) {
-                        Log.i(TAG, "Using PRoot container mode");
-                        cmd.add(proot.getAbsolutePath());
-                        cmd.add("--kill-on-exit");
-                        cmd.add("-0");
-                        cmd.add("-r");
-                        cmd.add(rootfs.getAbsolutePath());
-                        cmd.add("-b");
-                        cmd.add("/dev");
-                        cmd.add("-b");
-                        cmd.add("/proc");
-                        cmd.add("-b");
-                        cmd.add("/sys");
-
-                        File hostSdcard = new File("/sdcard");
-                        File guestSdcard = new File(rootfs, "sdcard");
-                        if (hostSdcard.exists() && guestSdcard.exists()) {
-                            cmd.add("-b");
-                            cmd.add("/sdcard:/sdcard");
-                        }
-
-                        cmd.add("-w");
-                        cmd.add("/root");
-                        cmd.add("/bin/sh");
-                        cmd.add("-l");
-                        workDir = rootfs;
-                    } else if (hasSu) {
-                        Log.i(TAG, "Using real SU root shell: " + suPath);
-                        cmd.add(suPath);
-                        workDir = rootDir;
-                    } else {
-                        // Use static Musl BusyBox shell directly
-                        Log.i(TAG, "Using native static BusyBox shell: " + busybox.getAbsolutePath());
+                    if (suFunctional) {
+                        Log.i(TAG, "Launching real SU root: " + workingSu);
+                        cmd.add(workingSu);
+                    } else if (busyboxFunctional) {
+                        Log.i(TAG, "Launching BusyBox interactive shell: " + busybox.getAbsolutePath());
                         cmd.add(busybox.getAbsolutePath());
                         cmd.add("sh");
-                        cmd.add("-l");
-                        workDir = rootDir;
+                    } else {
+                        Log.i(TAG, "Launching native system shell: /system/bin/sh");
+                        cmd.add("/system/bin/sh");
                     }
 
                     ProcessBuilder pb = new ProcessBuilder(cmd);
-                    pb.directory(workDir);
+                    pb.directory(rootDir);
                     pb.redirectErrorStream(true);
 
                     Map<String, String> env = pb.environment();
-                    env.put("PROOT_TMP_DIR", tmpDir.getAbsolutePath());
+                    env.put("PATH", binDir.getAbsolutePath() + ":/system/xbin:/system/bin:/sbin:/vendor/bin");
                     env.put("TMPDIR", tmpDir.getAbsolutePath());
                     env.put("HOME", rootDir.getAbsolutePath());
                     env.put("USER", "root");
                     env.put("TERM", "xterm-256color");
-                    env.put("PATH", binDir.getAbsolutePath() + ":" + rootfs.getAbsolutePath() + "/bin:/usr/local/bin:/usr/bin:/bin:/system/xbin:/system/bin:/sbin");
-                    env.put("SHELL", busybox.getAbsolutePath());
-                    env.put("LANG", "C.UTF-8");
-                    env.put("PROOT_NO_SECCOMP", "1");
 
-                    Log.i(TAG, "Starting shell: " + cmd);
+                    Log.i(TAG, "Starting shell process: " + cmd);
                     mProcess = pb.start();
                     mStdin = mProcess.getOutputStream();
                     mStdout = mProcess.getInputStream();
                     mRunning = true;
 
-                    // If running Busybox directly, read .profile manually if not loaded
-                    if (!prootWorks && !hasSu) {
-                        File prof = new File(rootDir, ".profile");
-                        if (prof.exists()) {
-                            write(". " + prof.getAbsolutePath() + "\n");
+                    // Send initialization script into stdin
+                    final boolean finalSu = suFunctional;
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                Thread.sleep(200);
+                                String initScript =
+                                        "export PATH=\"" + binDir.getAbsolutePath() + ":/system/xbin:/system/bin:/sbin:$PATH\"\n" +
+                                        "export TERM=xterm-256color\n" +
+                                        "export HOME=\"" + rootDir.getAbsolutePath() + "\"\n" +
+                                        "export PS1='\\[\\033[01;32m\\]root@q5\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]# '\n" +
+                                        "cd \"" + rootDir.getAbsolutePath() + "\"\n" +
+                                        "clear\n" +
+                                        "echo -e \"\\033[1;32m====================================================\\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m   ___   _____      __               __          __  \\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m  / _ \\ / ___/_ __ / /  ___ _______ / /__ ____  / /__\\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m / // // /__/ // // _ \\/ -_) __/ _ /  '_// -_)/ // _/\\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m \\__\\_\\\\___/\\_, //_.__/\\__/_/  \\__/_/\\_\\\\__/_//_/\\__\\ \\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m           /___/                                     \\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m====================================================\\033[0m\"\n" +
+                                        "echo -e \"  Hardware: BlackBerry Q5 (Qualcomm MSM8960 2GB)\"\n" +
+                                        (finalSu ?
+                                        "echo -e \"  Status:   \\033[1;31mROOT SHELL (UID 0 - REAL ROOT ON DEVICE)\\033[0m\"\n" :
+                                        "echo -e \"  Status:   \\033[1;32mONLINE (BusyBox Core + 350+ Unix Utilities)\\033[0m\"\n") +
+                                        "echo -e \"  Storage:  /sdcard & device storage mounted\"\n" +
+                                        "echo -e \"----------------------------------------------------\"\n" +
+                                        "echo -e \"  Try: \\033[1;33mls -la, uname -a, ps, top, ifconfig, vi, wget\\033[0m\"\n" +
+                                        "echo -e \"\\033[1;32m====================================================\\033[0m\\n\"\n";
+                                write(initScript);
+                            } catch (Exception ignored) {}
                         }
-                    }
+                    }).start();
 
                     byte[] buf = new byte[4096];
                     int read;

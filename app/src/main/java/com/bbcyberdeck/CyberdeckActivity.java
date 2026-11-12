@@ -101,7 +101,7 @@ public class CyberdeckActivity extends Activity {
                 if (mSession != null) {
                     mSession.kill();
                 }
-                File marker = new File(getFilesDir(), ".installed_v3");
+                File marker = new File(getFilesDir(), ".installed_v4");
                 marker.delete();
                 mTerminalView.clearScreen();
                 checkAndStart();
