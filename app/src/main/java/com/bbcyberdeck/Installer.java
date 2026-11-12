@@ -6,7 +6,6 @@ import android.util.Log;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.io.OutputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
@@ -45,8 +44,12 @@ public class Installer {
                     } catch (Exception ignored) {}
 
                     // 2. Extract Alpine rootfs
-                    callback.onProgress("[2/4] Extracting Alpine Linux rootfs (30MB)...");
-                    InputStream is = context.getAssets().open("alpine-minirootfs.tar.gz");
+                    callback.onProgress("[2/4] Extracting Alpine Linux rootfs...");
+                    InputStream is = openRootfsStream(context);
+                    if (is == null) {
+                        throw new Exception("rootfs archive not found in assets");
+                    }
+
                     TarExtractor.extractTarGz(is, rootfsDir, new TarExtractor.ProgressListener() {
                         @Override
                         public void onProgress(String file, int count) {
@@ -106,6 +109,24 @@ public class Installer {
                 }
             }
         }).start();
+    }
+
+    private static InputStream openRootfsStream(Context context) {
+        String[] candidates = new String[]{"rootfs.tar.gz", "rootfs.tar", "alpine-minirootfs.tar.gz", "alpine-minirootfs.tar"};
+        for (String c : candidates) {
+            try {
+                InputStream is = context.getAssets().open(c);
+                if (is != null) return is;
+            } catch (Exception ignored) {}
+        }
+        try {
+            for (String a : context.getAssets().list("")) {
+                if (a.contains("rootfs") || a.contains("alpine")) {
+                    return context.getAssets().open(a);
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     private static void copyAsset(Context context, String assetName, File outFile) throws Exception {

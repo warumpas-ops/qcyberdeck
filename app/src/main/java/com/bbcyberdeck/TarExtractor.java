@@ -3,10 +3,10 @@ package com.bbcyberdeck;
 import android.util.Log;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.PushbackInputStream;
 import java.util.zip.GZIPInputStream;
 
 public class TarExtractor {
@@ -16,13 +16,24 @@ public class TarExtractor {
         void onProgress(String file, int count);
     }
 
-    public static void extractTarGz(InputStream gzipStream, File targetDir, ProgressListener listener) throws IOException {
-        GZIPInputStream gis = new GZIPInputStream(gzipStream);
+    public static void extractTarGz(InputStream rawStream, File targetDir, ProgressListener listener) throws IOException {
+        PushbackInputStream pbis = new PushbackInputStream(rawStream, 2);
+        byte[] magic = new byte[2];
+        int r = pbis.read(magic);
+        pbis.unread(magic, 0, r);
+
+        InputStream is;
+        if (r == 2 && magic[0] == (byte) 0x1f && magic[1] == (byte) 0x8b) {
+            is = new GZIPInputStream(pbis);
+        } else {
+            is = pbis;
+        }
+
         byte[] header = new byte[512];
         int count = 0;
 
         while (true) {
-            int read = readFully(gis, header, 0, 512);
+            int read = readFully(is, header, 0, 512);
             if (read < 512) break;
 
             // Check for empty block (end of archive)
@@ -43,42 +54,40 @@ public class TarExtractor {
             File targetFile = new File(targetDir, name);
 
             if (type == '5' || name.endsWith("/")) {
-                // Directory
                 targetFile.mkdirs();
             } else if (type == '2' || type == '1') {
-                // Symlink or Hard link
                 targetFile.getParentFile().mkdirs();
                 try {
-                    // Try to create symlink using Android libc if available, otherwise record or copy
                     createSymlink(linkName, targetFile.getAbsolutePath());
                 } catch (Throwable t) {
                     Log.w(TAG, "Symlink error for " + name + " -> " + linkName);
                 }
             } else {
-                // Regular file (type '0' or '\0')
                 targetFile.getParentFile().mkdirs();
+                if (targetFile.exists() || !targetFile.canWrite()) {
+                    targetFile.delete();
+                }
+
                 FileOutputStream fos = new FileOutputStream(targetFile);
                 byte[] buf = new byte[8192];
                 long remaining = size;
                 while (remaining > 0) {
                     int toRead = (int) Math.min(buf.length, remaining);
-                    int r = gis.read(buf, 0, toRead);
-                    if (r < 0) break;
-                    fos.write(buf, 0, r);
-                    remaining -= r;
+                    int n = is.read(buf, 0, toRead);
+                    if (n < 0) break;
+                    fos.write(buf, 0, n);
+                    remaining -= n;
                 }
                 fos.close();
 
-                // Make binaries and scripts executable
                 if (name.startsWith("bin/") || name.startsWith("sbin/") || name.startsWith("usr/bin/") || name.startsWith("usr/sbin/")) {
                     targetFile.setExecutable(true, false);
                 }
 
-                // Read trailing pad bytes to align to 512 block
                 long pad = (512 - (size % 512)) % 512;
                 if (pad > 0) {
                     byte[] skip = new byte[(int) pad];
-                    readFully(gis, skip, 0, (int) pad);
+                    readFully(is, skip, 0, (int) pad);
                 }
             }
 
@@ -87,19 +96,16 @@ public class TarExtractor {
                 listener.onProgress(name, count);
             }
         }
-        gis.close();
+        is.close();
     }
 
     private static void createSymlink(String target, String linkpath) {
         try {
-            // Using reflection for Os.symlink (Android 5.0+) or Runtime exec on Android 4.3
             File link = new File(linkpath);
             link.delete();
             Process p = Runtime.getRuntime().exec(new String[]{"/system/bin/ln", "-s", target, linkpath});
             p.waitFor();
-        } catch (Exception e) {
-            // Fallback
-        }
+        } catch (Exception ignored) {}
     }
 
     private static int readFully(InputStream is, byte[] b, int off, int len) throws IOException {

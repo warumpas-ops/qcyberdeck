@@ -27,7 +27,7 @@ android {
     }
 
     aaptOptions {
-        noCompress 'tar.gz', 'gz', 'proot'
+        noCompress ''
     }
 
     lint {
