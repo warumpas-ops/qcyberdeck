@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Bump version marker → forces re-install on user's device
-    private static final String VERSION_MARKER = ".installed_v5";
+    // Version v6: Minimalist UI + Full BusyBox symlinks + Library path fix
+    private static final String VERSION_MARKER = ".installed_v6";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -31,7 +31,6 @@ public class Installer {
                 try {
                     File filesDir = context.getFilesDir();
 
-                    // Create directory structure
                     File binDir     = new File(filesDir, "usr/bin");
                     File rootDir    = new File(filesDir, "root");
                     File tmpDir     = new File(filesDir, "tmp");
@@ -44,45 +43,50 @@ public class Installer {
                     tmpDir.setWritable(true, false);
                     tmpDir.setExecutable(true, false);
 
-                    // 1. Copy BusyBox binary
-                    callback.onProgress("[1/3] Installing BusyBox...");
+                    // 1. Copy Static BusyBox Binary
+                    callback.onProgress("installing core...");
                     File busyboxFile = new File(binDir, "busybox");
                     copyAsset(context, "busybox", busyboxFile);
-                    // chmod 755 via multiple methods for maximum compatibility
                     busyboxFile.setReadable(true, false);
                     busyboxFile.setExecutable(true, false);
-                    busyboxFile.setWritable(false, false);
-                    // Also try runtime chmod in case setExecutable fails on this Android version
                     try {
-                        Process p = Runtime.getRuntime().exec(
-                            new String[]{"chmod", "755", busyboxFile.getAbsolutePath()});
-                        p.waitFor();
+                        Runtime.getRuntime().exec(
+                            new String[]{"chmod", "755", busyboxFile.getAbsolutePath()}).waitFor();
                     } catch (Exception ignored) {}
 
-                    // 2. Try busybox --install -s, but DON'T fail if it doesn't work.
-                    // On some BB10 Android runtimes this silently fails — that's OK because
-                    // TerminalSession will still use busybox directly via full path.
-                    callback.onProgress("[2/3] Setting up utilities...");
+                    // 2. Set up symlinks for all primary Unix utilities
+                    callback.onProgress("linking tools...");
+                    String[] applets = new String[]{
+                        "whoami", "id", "ls", "cat", "ps", "top", "vi", "grep", "pwd",
+                        "mkdir", "rm", "cp", "mv", "chmod", "chown", "touch", "echo",
+                        "clear", "find", "sed", "awk", "tar", "gzip", "wget", "curl",
+                        "df", "free", "uname", "uptime", "head", "tail", "more", "less",
+                        "which", "kill", "sleep", "date", "env", "true", "false", "test",
+                        "wc", "sort", "uniq", "cut", "tr", "tee", "xargs", "strings",
+                        "du", "netstat", "ifconfig", "ping", "stat", "basename", "dirname"
+                    };
+
+                    for (String app : applets) {
+                        File link = new File(binDir, app);
+                        if (!link.exists()) {
+                            try {
+                                Runtime.getRuntime().exec(new String[]{
+                                    "ln", "-s", busyboxFile.getAbsolutePath(), link.getAbsolutePath()
+                                }).waitFor();
+                            } catch (Exception ignored) {}
+                        }
+                    }
+
+                    // Best effort --install -s
                     try {
                         Process p = Runtime.getRuntime().exec(new String[]{
                             busyboxFile.getAbsolutePath(), "--install", "-s",
                             binDir.getAbsolutePath()
                         });
-                        p.waitFor(); // ignore exit code — it's best-effort
+                        p.waitFor();
                     } catch (Exception ignored) {}
 
-                    // 3. Write a minimal /etc/profile so interactive shells get PATH
-                    callback.onProgress("[3/3] Finalizing...");
-                    File profile = new File(etcDir, "profile");
-                    writeTextFile(profile,
-                        "export PATH=\"" + binDir.getAbsolutePath()
-                        + ":/system/xbin:/system/bin:/sbin:/vendor/bin\"\n"
-                        + "export HOME=\"" + rootDir.getAbsolutePath() + "\"\n"
-                        + "export TERM=xterm-256color\n"
-                        + "export USER=root\n"
-                    );
-
-                    // Mark as installed
+                    // 3. Mark as installed
                     File marker = new File(filesDir, VERSION_MARKER);
                     marker.createNewFile();
 
@@ -104,13 +108,5 @@ public class Installer {
         while ((n = in.read(buf)) != -1) out.write(buf, 0, n);
         in.close();
         out.close();
-    }
-
-    private static void writeTextFile(File f, String content) {
-        try {
-            FileOutputStream fos = new FileOutputStream(f);
-            fos.write(content.getBytes());
-            fos.close();
-        } catch (Exception ignored) {}
     }
 }

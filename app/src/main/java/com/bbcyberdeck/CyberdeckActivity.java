@@ -112,14 +112,14 @@ public class CyberdeckActivity extends Activity {
         mInputLine.setLength(0);
         mTerminalView.clearScreen();
         if (reinstall) {
-            File marker = new File(getFilesDir(), ".installed_v5");
+            File marker = new File(getFilesDir(), ".installed_v6");
             marker.delete();
             checkAndStart();
-            Toast.makeText(this, "Reinstalling core...", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Reinstalling...", Toast.LENGTH_SHORT).show();
         } else {
             initSession();
             mSession.start();
-            Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Restarted", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -206,19 +206,19 @@ public class CyberdeckActivity extends Activity {
 
     private void updateModifierColors() {
         if (mCtrlActive) {
-            mBtnCtrl.setBackgroundColor(Color.rgb(0, 200, 80));
-            mBtnCtrl.setTextColor(Color.BLACK);
-        } else {
-            mBtnCtrl.setBackgroundColor(Color.rgb(30, 40, 54));
+            mBtnCtrl.setBackgroundColor(Color.rgb(0, 140, 60));
             mBtnCtrl.setTextColor(Color.WHITE);
+        } else {
+            mBtnCtrl.setBackgroundColor(Color.rgb(22, 22, 22));
+            mBtnCtrl.setTextColor(Color.rgb(136, 136, 136));
         }
 
         if (mAltActive) {
-            mBtnAlt.setBackgroundColor(Color.rgb(220, 150, 0));
-            mBtnAlt.setTextColor(Color.BLACK);
-        } else {
-            mBtnAlt.setBackgroundColor(Color.rgb(30, 40, 54));
+            mBtnAlt.setBackgroundColor(Color.rgb(180, 110, 0));
             mBtnAlt.setTextColor(Color.WHITE);
+        } else {
+            mBtnAlt.setBackgroundColor(Color.rgb(22, 22, 22));
+            mBtnAlt.setTextColor(Color.rgb(136, 136, 136));
         }
     }
 

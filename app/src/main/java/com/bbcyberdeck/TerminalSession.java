@@ -57,7 +57,6 @@ public class TerminalSession {
                     rootDir.mkdirs();
                     tmpDir.mkdirs();
 
-                    // --- Determine if BusyBox binary executes cleanly ---
                     boolean usingBusybox = false;
                     if (busybox.exists() && busybox.canExecute()) {
                         try {
@@ -71,16 +70,17 @@ public class TerminalSession {
 
                     List<String> cmd = new ArrayList<String>();
                     if (usingBusybox) {
-                        Log.i(TAG, "Launching: busybox sh -i");
+                        Log.i(TAG, "Shell: busybox sh -i");
                         cmd.add(busybox.getAbsolutePath());
                         cmd.add("sh");
                         cmd.add("-i");
                     } else {
-                        Log.i(TAG, "Launching: /system/bin/sh -i");
+                        Log.i(TAG, "Shell: /system/bin/sh -i");
                         cmd.add("/system/bin/sh");
                         cmd.add("-i");
                     }
 
+                    // Put our bin dir first, then system bins
                     String pathVal = binDir.getAbsolutePath()
                             + ":/system/xbin:/system/bin:/sbin:/vendor/bin";
 
@@ -95,41 +95,36 @@ public class TerminalSession {
                     env.put("USER",    "root");
                     env.put("LOGNAME", "root");
                     env.put("TERM",    "xterm-256color");
-                    env.put("PS1",     "root@q5:# ");
-                    env.remove("LD_PRELOAD");
-                    env.remove("LD_LIBRARY_PATH");
+                    env.put("PS1",     "root@q5:~# ");
 
-                    Log.i(TAG, "Starting process: " + cmd);
+                    // CRITICAL FIX: Ensure Android shared library path is intact
+                    String existingLd = System.getenv("LD_LIBRARY_PATH");
+                    if (existingLd == null || existingLd.isEmpty()) {
+                        existingLd = "/system/lib:/vendor/lib";
+                    }
+                    env.put("LD_LIBRARY_PATH", existingLd);
+                    env.remove("LD_PRELOAD");
+
+                    Log.i(TAG, "Starting: " + cmd);
                     mProcess = pb.start();
                     mStdin   = mProcess.getOutputStream();
                     mStdout  = mProcess.getInputStream();
                     mRunning = true;
 
-                    // Emit clean, formatted banner directly to screen (zero shell printf calls)
-                    final boolean bb = usingBusybox;
-                    String banner =
-                        "\u001B[1;32m================================================\u001B[0m\r\n" +
-                        "\u001B[1;32m  QCyberdeck - BlackBerry Q5 Linux Terminal\u001B[0m\r\n" +
-                        "\u001B[1;32m================================================\u001B[0m\r\n" +
-                        "  Hardware : BlackBerry Q5 (Qualcomm MSM8960 2GB)\r\n" +
-                        "  Core     : " + (bb ? "BusyBox Linux (350+ Unix Utilities)" : "Native System Shell") + "\r\n" +
-                        "  Storage  : /sdcard & app storage mounted\r\n" +
-                        "  Try      : ls, uname -a, ps, top, ifconfig, vi\r\n" +
-                        "\u001B[1;32m------------------------------------------------\u001B[0m\r\n\r\n";
-                    emit(banner);
+                    // Minimalist startup greeting
+                    emit("\u001B[1;32mQ5 Terminal\u001B[0m [MSM8960 / ARMv7]\r\nType 'help' or any command.\r\n\r\n");
 
-                    // Switch working directory to /sdcard or app root without noisy prints
+                    // Switch working directory
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                Thread.sleep(250);
+                                Thread.sleep(200);
                                 write("cd /sdcard 2>/dev/null || cd \"" + mContext.getFilesDir().getAbsolutePath() + "/root\"\n");
                             } catch (Exception ignored) {}
                         }
                     }).start();
 
-                    // Read loop: streams shell output directly to the terminal view
                     byte[] buf = new byte[4096];
                     int read;
                     while (mRunning && (read = mStdout.read(buf)) != -1) {
@@ -151,7 +146,7 @@ public class TerminalSession {
                     Log.e(TAG, "Terminal launch failed", e);
                     mRunning = false;
                     if (mListener != null) {
-                        String msg = "\r\n\u001B[1;31m[LAUNCH ERROR: " + e.getMessage() + "]\u001B[0m\r\n";
+                        String msg = "\r\n\u001B[1;31m[Launch Error: " + e.getMessage() + "]\u001B[0m\r\n";
                         byte[] b = msg.getBytes();
                         mListener.onOutput(b, 0, b.length);
                         mListener.onProcessExited(-1);

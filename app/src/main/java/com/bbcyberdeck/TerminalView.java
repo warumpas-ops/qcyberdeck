@@ -84,23 +84,23 @@ public class TerminalView extends View {
         mTheme = theme;
         switch (theme) {
             case THEME_MATRIX_GREEN:
-                mColorBg     = Color.rgb(10, 14, 20);
+                mColorBg     = Color.BLACK;
                 mColorFg     = Color.rgb(0, 255, 102);   // Phosphor neon green
                 mColorCursor = Color.rgb(0, 255, 102);
                 break;
             case THEME_AMBER_CRT:
-                mColorBg     = Color.rgb(18, 14, 6);
+                mColorBg     = Color.BLACK;
                 mColorFg     = Color.rgb(255, 176, 0);   // Amber vintage CRT
                 mColorCursor = Color.rgb(255, 176, 0);
                 break;
             case THEME_CYBER_BLUE:
-                mColorBg     = Color.rgb(8, 16, 26);
-                mColorFg     = Color.rgb(0, 210, 255);   // Cyberdeck Cyan
+                mColorBg     = Color.BLACK;
+                mColorFg     = Color.rgb(0, 210, 255);   // Cyan
                 mColorCursor = Color.rgb(0, 210, 255);
                 break;
             case THEME_CLASSIC_WHITE:
             default:
-                mColorBg     = Color.rgb(13, 17, 23);
+                mColorBg     = Color.BLACK;
                 mColorFg     = Color.rgb(230, 237, 243); // Clean terminal white
                 mColorCursor = Color.rgb(230, 237, 243);
                 break;

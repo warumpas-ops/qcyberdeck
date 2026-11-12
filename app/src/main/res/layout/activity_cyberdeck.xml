@@ -3,15 +3,15 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="#0A0E14">
+    android:background="#000000">
 
-    <!-- Top Cyberdeck Status Bar -->
+    <!-- Minimalist Top Bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="36dp"
+        android:layout_height="24dp"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#05080C"
+        android:background="#000000"
         android:paddingLeft="8dp"
         android:paddingRight="8dp">
 
@@ -19,21 +19,9 @@
             android:id="@+id/tv_title"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Q5-CYBERDECK"
-            android:textColor="#00FF66"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:typeface="monospace" />
-
-        <TextView
-            android:id="@+id/tv_root_badge"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginLeft="10dp"
-            android:text="[ROOT: UID 0]"
-            android:textColor="#FF4444"
-            android:textSize="10sp"
-            android:textStyle="bold"
+            android:text="q5:~#"
+            android:textColor="#555555"
+            android:textSize="11sp"
             android:typeface="monospace" />
 
         <View
@@ -41,83 +29,78 @@
             android:layout_height="1dp"
             android:layout_weight="1" />
 
-        <Button
+        <TextView
             android:id="@+id/btn_theme"
             android:layout_width="wrap_content"
-            android:layout_height="28dp"
-            android:text="THEME"
-            android:textSize="10sp"
-            android:textColor="#FFFFFF"
-            android:background="#1E2A38"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="theme"
+            android:textColor="#777777"
+            android:textSize="11sp"
+            android:typeface="monospace"
             android:paddingLeft="8dp"
-            android:paddingRight="8dp" />
+            android:paddingRight="8dp"
+            android:clickable="true" />
 
-        <Button
+        <TextView
             android:id="@+id/btn_restart"
             android:layout_width="wrap_content"
-            android:layout_height="28dp"
-            android:layout_marginLeft="6dp"
-            android:text="RESET"
-            android:textSize="10sp"
-            android:textColor="#FF8888"
-            android:background="#2E1A1A"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:layout_marginLeft="4dp"
+            android:text="reset"
+            android:textColor="#777777"
+            android:textSize="11sp"
+            android:typeface="monospace"
             android:paddingLeft="8dp"
-            android:paddingRight="8dp" />
+            android:paddingRight="8dp"
+            android:clickable="true" />
     </LinearLayout>
 
     <!-- Main Terminal View -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        android:layout_weight="1"
+        android:background="#000000">
 
         <com.bbcyberdeck.TerminalView
             android:id="@+id/terminal_view"
             android:layout_width="match_parent"
             android:layout_height="match_parent" />
 
-        <!-- Installation / Loading Overlay -->
+        <!-- Minimal Loading Indicator -->
         <LinearLayout
             android:id="@+id/layout_installing"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
             android:gravity="center"
-            android:background="#0A0E14"
-            android:padding="24dp"
+            android:background="#000000"
+            android:padding="20dp"
             android:visibility="gone">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="INITIALIZING CYBERDECK..."
-                android:textColor="#00FF66"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:typeface="monospace" />
-
             <ProgressBar
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp" />
+                android:layout_width="24dp"
+                android:layout_height="24dp" />
 
             <TextView
                 android:id="@+id/tv_install_status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Extracting rootfs..."
-                android:textColor="#88FF88"
-                android:textSize="12sp"
+                android:layout_marginTop="8dp"
+                android:text="initializing..."
+                android:textColor="#666666"
+                android:textSize="11sp"
                 android:typeface="monospace" />
         </LinearLayout>
     </FrameLayout>
 
-    <!-- Bottom Soft-Modifier Bar for BlackBerry Physical Keyboard -->
+    <!-- Minimalist Soft Keys Bar -->
     <HorizontalScrollView
         android:layout_width="match_parent"
-        android:layout_height="38dp"
-        android:background="#0F141C"
+        android:layout_height="30dp"
+        android:background="#0A0A0A"
         android:scrollbars="none">
 
         <LinearLayout
@@ -129,137 +112,140 @@
             android:paddingRight="4dp">
 
             <Button
-                android:id="@+id/btn_ctrl"
-                android:layout_width="52dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
-                android:text="CTRL"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="#1E2836" />
-
-            <Button
-                android:id="@+id/btn_alt"
-                android:layout_width="48dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
-                android:text="ALT"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:textStyle="bold"
-                android:background="#1E2836" />
+                android:id="@+id/btn_esc"
+                android:layout_width="44dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
+                android:text="ESC"
+                android:textColor="#888888"
+                android:textSize="10sp"
+                android:typeface="monospace"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_tab"
-                android:layout_width="48dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="44dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="TAB"
-                android:textColor="#FFFFFF"
-                android:textSize="11sp"
-                android:background="#1E2836" />
+                android:textColor="#888888"
+                android:textSize="10sp"
+                android:typeface="monospace"
+                android:background="#161616" />
 
             <Button
-                android:id="@+id/btn_esc"
-                android:layout_width="48dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
-                android:text="ESC"
-                android:textColor="#FF6666"
-                android:textSize="11sp"
+                android:id="@+id/btn_ctrl"
+                android:layout_width="46dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
+                android:text="CTRL"
+                android:textColor="#888888"
+                android:textSize="10sp"
                 android:textStyle="bold"
-                android:background="#1E2836" />
+                android:typeface="monospace"
+                android:background="#161616" />
+
+            <Button
+                android:id="@+id/btn_alt"
+                android:layout_width="44dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
+                android:text="ALT"
+                android:textColor="#888888"
+                android:textSize="10sp"
+                android:textStyle="bold"
+                android:typeface="monospace"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_pipe"
-                android:layout_width="38dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="32dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="|"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:background="#1E2836" />
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_tilde"
-                android:layout_width="38dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="32dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="~"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:background="#1E2836" />
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_slash"
-                android:layout_width="38dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="32dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="/"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:background="#1E2836" />
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_backslash"
-                android:layout_width="38dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="32dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="\\"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:background="#1E2836" />
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_dash"
-                android:layout_width="38dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="32dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="-"
-                android:textColor="#FFFFFF"
-                android:textSize="13sp"
-                android:background="#1E2836" />
+                android:textColor="#AAAAAA"
+                android:textSize="11sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_up"
-                android:layout_width="40dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="34dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="▲"
-                android:textColor="#00FF66"
-                android:textSize="11sp"
-                android:background="#1E2836" />
+                android:textColor="#888888"
+                android:textSize="9sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_down"
-                android:layout_width="40dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="34dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="▼"
-                android:textColor="#00FF66"
-                android:textSize="11sp"
-                android:background="#1E2836" />
+                android:textColor="#888888"
+                android:textSize="9sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_left"
-                android:layout_width="40dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="34dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="◀"
-                android:textColor="#00FF66"
-                android:textSize="11sp"
-                android:background="#1E2836" />
+                android:textColor="#888888"
+                android:textSize="9sp"
+                android:background="#161616" />
 
             <Button
                 android:id="@+id/btn_right"
-                android:layout_width="40dp"
-                android:layout_height="32dp"
-                android:layout_margin="2dp"
+                android:layout_width="34dp"
+                android:layout_height="24dp"
+                android:layout_margin="1dp"
                 android:text="▶"
-                android:textColor="#00FF66"
-                android:textSize="11sp"
-                android:background="#1E2836" />
+                android:textColor="#888888"
+                android:textSize="9sp"
+                android:background="#161616" />
         </LinearLayout>
     </HorizontalScrollView>
 
