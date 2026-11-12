@@ -196,6 +196,9 @@ public class TerminalView extends View {
                 handleAnsiSequence(mEscapeBuffer.toString());
                 mInEscape = false;
                 mEscapeBuffer.setLength(0);
+            } else if (mEscapeBuffer.length() > 32) {
+                mInEscape = false;
+                mEscapeBuffer.setLength(0);
             }
             return;
         }

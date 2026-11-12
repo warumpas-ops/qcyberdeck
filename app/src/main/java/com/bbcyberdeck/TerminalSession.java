@@ -38,8 +38,8 @@ public class TerminalSession {
     }
 
     private void emit(String msg) {
-        if (mListener != null) {
-            byte[] b = (msg + "\r\n").getBytes();
+        if (mListener != null && msg != null) {
+            byte[] b = msg.getBytes();
             mListener.onOutput(b, 0, b.length);
         }
     }
@@ -57,35 +57,30 @@ public class TerminalSession {
                     rootDir.mkdirs();
                     tmpDir.mkdirs();
 
-                    // --- Choose the shell ---
-                    // Priority: busybox sh (if binary runs) → /system/bin/sh (always works)
-                    List<String> cmd = new ArrayList<String>();
+                    // --- Determine if BusyBox binary executes cleanly ---
                     boolean usingBusybox = false;
-
                     if (busybox.exists() && busybox.canExecute()) {
-                        // Quick smoke-test: busybox true (exit 0 means it works)
                         try {
                             Process t = Runtime.getRuntime().exec(
                                 new String[]{busybox.getAbsolutePath(), "true"});
-                            int code = t.waitFor();
-                            if (code == 0) {
+                            if (t.waitFor() == 0) {
                                 usingBusybox = true;
                             }
                         } catch (Throwable ignored) {}
                     }
 
+                    List<String> cmd = new ArrayList<String>();
                     if (usingBusybox) {
-                        Log.i(TAG, "Shell: busybox sh");
+                        Log.i(TAG, "Launching: busybox sh -i");
                         cmd.add(busybox.getAbsolutePath());
                         cmd.add("sh");
+                        cmd.add("-i");
                     } else {
-                        Log.i(TAG, "Shell: /system/bin/sh");
+                        Log.i(TAG, "Launching: /system/bin/sh -i");
                         cmd.add("/system/bin/sh");
+                        cmd.add("-i");
                     }
 
-                    // --- Build PATH: busybox dir first so its applets shadow system ones ---
-                    // Even if busybox --install didn't create symlinks, we can still call
-                    // `busybox <applet>` manually; but most things we need are in /system/bin anyway.
                     String pathVal = binDir.getAbsolutePath()
                             + ":/system/xbin:/system/bin:/sbin:/vendor/bin";
 
@@ -100,63 +95,41 @@ public class TerminalSession {
                     env.put("USER",    "root");
                     env.put("LOGNAME", "root");
                     env.put("TERM",    "xterm-256color");
-                    // Remove vars that could confuse a minimal shell
+                    env.put("PS1",     "root@q5:# ");
                     env.remove("LD_PRELOAD");
                     env.remove("LD_LIBRARY_PATH");
 
-                    Log.i(TAG, "Starting: " + cmd + " PATH=" + pathVal);
+                    Log.i(TAG, "Starting process: " + cmd);
                     mProcess = pb.start();
                     mStdin   = mProcess.getOutputStream();
                     mStdout  = mProcess.getInputStream();
                     mRunning = true;
 
-                    // --- Send init script after tiny delay so shell stdin is ready ---
-                    // RULES for the init script:
-                    //   1. Use ONLY shell built-ins or commands guaranteed by /system/bin/sh
-                    //      (echo, printf, cd, export, alias — all built-in in ash/dash/sh)
-                    //   2. NO `clear` — it needs terminfo / /usr/bin/clear which may not exist
-                    //      Instead print a few blank lines to visually clear the screen
-                    //   3. NO `echo -e` — use printf instead (POSIX, works in all Android shells)
-                    //   4. Set PS1 LAST so the prompt appears after the banner
-                    //   5. Everything uses only single-byte characters — no UTF-8 art that
-                    //      might confuse the Q5 font renderer
+                    // Emit clean, formatted banner directly to screen (zero shell printf calls)
                     final boolean bb = usingBusybox;
+                    String banner =
+                        "\u001B[1;32m================================================\u001B[0m\r\n" +
+                        "\u001B[1;32m  QCyberdeck - BlackBerry Q5 Linux Terminal\u001B[0m\r\n" +
+                        "\u001B[1;32m================================================\u001B[0m\r\n" +
+                        "  Hardware : BlackBerry Q5 (Qualcomm MSM8960 2GB)\r\n" +
+                        "  Core     : " + (bb ? "BusyBox Linux (350+ Unix Utilities)" : "Native System Shell") + "\r\n" +
+                        "  Storage  : /sdcard & app storage mounted\r\n" +
+                        "  Try      : ls, uname -a, ps, top, ifconfig, vi\r\n" +
+                        "\u001B[1;32m------------------------------------------------\u001B[0m\r\n\r\n";
+                    emit(banner);
+
+                    // Switch working directory to /sdcard or app root without noisy prints
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                Thread.sleep(300);
-
-                                // Blank lines act as a soft clear
-                                StringBuilder sb = new StringBuilder();
-                                sb.append("\n\n\n\n\n");
-
-                                // Banner — uses only printf which is a shell built-in
-                                sb.append("printf '\\033[1;32m================================================\\033[0m\\n'\n");
-                                sb.append("printf '\\033[1;32m  QCyberdeck - BlackBerry Q5 Linux Shell\\033[0m\\n'\n");
-                                sb.append("printf '\\033[1;32m================================================\\033[0m\\n'\n");
-                                sb.append("printf '  Device : BlackBerry Q5 (MSM8960 2GB)\\n'\n");
-                                if (bb) {
-                                    sb.append("printf '  Shell  : BusyBox ash (350+ utilities)\\n'\n");
-                                } else {
-                                    sb.append("printf '  Shell  : Android system sh\\n'\n");
-                                }
-                                sb.append("printf '  Try    : ls  ps  top  ifconfig  vi  wget\\n'\n");
-                                sb.append("printf '\\033[1;32m------------------------------------------------\\033[0m\\n'\n");
-                                sb.append("printf '\\n'\n");
-
-                                // Set prompt AFTER the banner
-                                sb.append("export PS1='\\033[1;32mroot@q5\\033[0m:\\033[1;34m\\w\\033[0m# '\n");
-
-                                // cd to home
-                                sb.append("cd \"" + mContext.getFilesDir().getAbsolutePath() + "/root\" 2>/dev/null\n");
-
-                                write(sb.toString());
+                                Thread.sleep(250);
+                                write("cd /sdcard 2>/dev/null || cd \"" + mContext.getFilesDir().getAbsolutePath() + "/root\"\n");
                             } catch (Exception ignored) {}
                         }
                     }).start();
 
-                    // --- Read loop ---
+                    // Read loop: streams shell output directly to the terminal view
                     byte[] buf = new byte[4096];
                     int read;
                     while (mRunning && (read = mStdout.read(buf)) != -1) {
@@ -178,7 +151,7 @@ public class TerminalSession {
                     Log.e(TAG, "Terminal launch failed", e);
                     mRunning = false;
                     if (mListener != null) {
-                        String msg = "\r\n\033[1;31m[LAUNCH ERROR: " + e.getMessage() + "]\033[0m\r\n";
+                        String msg = "\r\n\u001B[1;31m[LAUNCH ERROR: " + e.getMessage() + "]\u001B[0m\r\n";
                         byte[] b = msg.getBytes();
                         mListener.onOutput(b, 0, b.length);
                         mListener.onProcessExited(-1);
@@ -189,7 +162,7 @@ public class TerminalSession {
     }
 
     public void write(byte[] data) {
-        if (mStdin == null || !mRunning) return;
+        if (mStdin == null || !mRunning || data == null) return;
         try {
             mStdin.write(data);
             mStdin.flush();

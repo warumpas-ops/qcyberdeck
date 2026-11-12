@@ -11,6 +11,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CyberdeckActivity extends Activity {
 
@@ -25,6 +27,11 @@ public class CyberdeckActivity extends Activity {
 
     private boolean mCtrlActive = false;
     private boolean mAltActive = false;
+
+    // Line buffer and command history for seamless terminal interaction
+    private final StringBuilder mInputLine = new StringBuilder();
+    private final List<String> mHistory = new ArrayList<String>();
+    private int mHistoryIndex = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,8 +67,8 @@ public class CyberdeckActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        String msg = "\r\n\r\n\033[1;31m[Session finished: exit code " + exitCode + "]\033[0m\r\n"
-                                + "\033[1;33mTap 'RESET' at top right to restart session.\033[0m\r\n";
+                        String msg = "\r\n\r\n\u001B[1;31m[Session finished: exit code " + exitCode + "]\u001B[0m\r\n"
+                                + "\u001B[1;33mTap 'RESET' at top right to restart session.\u001B[0m\r\n";
                         byte[] bytes = msg.getBytes();
                         mTerminalView.appendOutput(bytes, 0, bytes.length);
                         Toast.makeText(CyberdeckActivity.this, "Session finished (" + exitCode + ")", Toast.LENGTH_SHORT).show();
@@ -84,31 +91,36 @@ public class CyberdeckActivity extends Activity {
         btnRestart.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mSession != null) {
-                    mSession.kill();
-                }
-                mTerminalView.clearScreen();
-                initSession();
-                mSession.start();
-                Toast.makeText(CyberdeckActivity.this, "Session restarted", Toast.LENGTH_SHORT).show();
+                restartSession(false);
             }
         });
 
-        // Long-press reset forces re-installation
+        // Long-press reset forces complete re-installation of core binaries
         btnRestart.setOnLongClickListener(new View.OnLongClickListener() {
             @Override
             public boolean onLongClick(View v) {
-                if (mSession != null) {
-                    mSession.kill();
-                }
-                File marker = new File(getFilesDir(), ".installed_v4");
-                marker.delete();
-                mTerminalView.clearScreen();
-                checkAndStart();
-                Toast.makeText(CyberdeckActivity.this, "Reinstalling core...", Toast.LENGTH_SHORT).show();
+                restartSession(true);
                 return true;
             }
         });
+    }
+
+    private void restartSession(boolean reinstall) {
+        if (mSession != null) {
+            mSession.kill();
+        }
+        mInputLine.setLength(0);
+        mTerminalView.clearScreen();
+        if (reinstall) {
+            File marker = new File(getFilesDir(), ".installed_v5");
+            marker.delete();
+            checkAndStart();
+            Toast.makeText(this, "Reinstalling core...", Toast.LENGTH_SHORT).show();
+        } else {
+            initSession();
+            mSession.start();
+            Toast.makeText(this, "Session restarted", Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void setupBottomBar() {
@@ -132,57 +144,63 @@ public class CyberdeckActivity extends Activity {
 
         findViewById(R.id.btn_tab).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendByte((byte) '\t'); }
+            public void onClick(View v) { onCharInput('\t'); }
         });
 
         findViewById(R.id.btn_esc).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendByte((byte) 0x1B); }
+            public void onClick(View v) {
+                if (mSession != null) mSession.write(new byte[]{0x1B});
+            }
         });
 
         findViewById(R.id.btn_pipe).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("|"); }
+            public void onClick(View v) { onCharInput('|'); }
         });
 
         findViewById(R.id.btn_tilde).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("~"); }
+            public void onClick(View v) { onCharInput('~'); }
         });
 
         findViewById(R.id.btn_slash).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("/"); }
+            public void onClick(View v) { onCharInput('/'); }
         });
 
         findViewById(R.id.btn_backslash).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("\\"); }
+            public void onClick(View v) { onCharInput('\\'); }
         });
 
         findViewById(R.id.btn_dash).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("-"); }
+            public void onClick(View v) { onCharInput('-'); }
         });
 
         findViewById(R.id.btn_up).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("\033[A"); }
+            public void onClick(View v) { onHistoryUp(); }
         });
 
         findViewById(R.id.btn_down).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("\033[B"); }
+            public void onClick(View v) { onHistoryDown(); }
         });
 
         findViewById(R.id.btn_left).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("\033[D"); }
+            public void onClick(View v) {
+                // Future cursor navigation
+            }
         });
 
         findViewById(R.id.btn_right).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View v) { sendString("\033[C"); }
+            public void onClick(View v) {
+                // Future cursor navigation
+            }
         });
     }
 
@@ -204,18 +222,80 @@ public class CyberdeckActivity extends Activity {
         }
     }
 
-    private void sendByte(byte b) {
-        if (mSession != null) {
+    // --- Line Editing & Local Echo Core ---
+
+    private void onCharInput(char c) {
+        mInputLine.append(c);
+        mTerminalView.scrollToBottom();
+        // Instant visual feedback for physical keyboard
+        mTerminalView.appendOutput(new byte[]{(byte) c}, 0, 1);
+    }
+
+    private void onBackspace() {
+        if (mInputLine.length() > 0) {
+            mInputLine.deleteCharAt(mInputLine.length() - 1);
             mTerminalView.scrollToBottom();
-            mSession.write(new byte[]{b});
+            // Erase character from terminal: backspace, space, backspace
+            mTerminalView.appendOutput(new byte[]{'\b', ' ', '\b'}, 0, 3);
         }
     }
 
-    private void sendString(String s) {
-        if (mSession != null) {
-            mTerminalView.scrollToBottom();
-            mSession.write(s);
+    private void onEnter() {
+        String cmd = mInputLine.toString();
+        mInputLine.setLength(0);
+
+        if (cmd.trim().length() > 0) {
+            mHistory.add(cmd);
+            mHistoryIndex = mHistory.size();
         }
+
+        mTerminalView.scrollToBottom();
+        mTerminalView.appendOutput(new byte[]{'\r', '\n'}, 0, 2);
+
+        if (mSession != null) {
+            mSession.write(cmd + "\n");
+        }
+    }
+
+    private void onCtrlC() {
+        mInputLine.setLength(0);
+        mTerminalView.scrollToBottom();
+        mTerminalView.appendOutput(new byte[]{'^', 'C', '\r', '\n'}, 0, 4);
+        if (mSession != null) {
+            mSession.write(new byte[]{0x03}); // SIGINT
+        }
+    }
+
+    private void onHistoryUp() {
+        if (mHistory.isEmpty()) return;
+        if (mHistoryIndex > 0) {
+            mHistoryIndex--;
+        } else if (mHistoryIndex == -1) {
+            mHistoryIndex = mHistory.size() - 1;
+        }
+        replaceInputLine(mHistory.get(mHistoryIndex));
+    }
+
+    private void onHistoryDown() {
+        if (mHistory.isEmpty()) return;
+        if (mHistoryIndex < mHistory.size() - 1) {
+            mHistoryIndex++;
+            replaceInputLine(mHistory.get(mHistoryIndex));
+        } else {
+            mHistoryIndex = mHistory.size();
+            replaceInputLine("");
+        }
+    }
+
+    private void replaceInputLine(String newLine) {
+        mTerminalView.scrollToBottom();
+        while (mInputLine.length() > 0) {
+            mTerminalView.appendOutput(new byte[]{'\b', ' ', '\b'}, 0, 3);
+            mInputLine.deleteCharAt(mInputLine.length() - 1);
+        }
+        mInputLine.append(newLine);
+        byte[] bytes = newLine.getBytes();
+        mTerminalView.appendOutput(bytes, 0, bytes.length);
     }
 
     private void checkAndStart() {
@@ -265,64 +345,72 @@ public class CyberdeckActivity extends Activity {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
 
-            // Back button acts as ESC on BlackBerry physical keyboard terminal
+            // Hardware Back button on BlackBerry: clear current line if typing, else send ESC
             if (keyCode == KeyEvent.KEYCODE_BACK) {
-                sendByte((byte) 0x1B);
+                if (mInputLine.length() > 0) {
+                    replaceInputLine("");
+                } else if (mSession != null) {
+                    mSession.write(new byte[]{0x1B});
+                }
                 return true;
             }
 
-            // Handle special keys
             if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                sendByte((byte) '\r');
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DEL) {
-                sendByte((byte) 0x7F); // ASCII DEL
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_TAB) {
-                sendByte((byte) '\t');
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
-                sendByte((byte) 0x1B);
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
-                sendString("\033[A");
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
-                sendString("\033[B");
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) {
-                sendString("\033[D");
-                return true;
-            }
-            if (keyCode == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                sendString("\033[C");
+                onEnter();
                 return true;
             }
 
-            // If CTRL modifier is active
+            if (keyCode == KeyEvent.KEYCODE_DEL) {
+                onBackspace();
+                return true;
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_TAB) {
+                onCharInput('\t');
+                return true;
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                if (mSession != null) mSession.write(new byte[]{0x1B});
+                return true;
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+                onHistoryUp();
+                return true;
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_DPAD_DOWN) {
+                onHistoryDown();
+                return true;
+            }
+
+            // Check CTRL modifier combinations
             if (mCtrlActive || (event.getMetaState() & KeyEvent.META_CTRL_ON) != 0) {
                 mCtrlActive = false;
                 updateModifierColors();
 
-                int unicode = event.getUnicodeChar();
-                if (unicode >= 'a' && unicode <= 'z') {
-                    byte ctrlCode = (byte) (unicode - 'a' + 1);
-                    sendByte(ctrlCode);
+                int u = event.getUnicodeChar();
+                if (u == 'c' || u == 'C' || keyCode == KeyEvent.KEYCODE_C) {
+                    onCtrlC();
                     return true;
-                } else if (unicode >= 'A' && unicode <= 'Z') {
-                    byte ctrlCode = (byte) (unicode - 'A' + 1);
-                    sendByte(ctrlCode);
+                }
+                if (u == 'l' || u == 'L' || keyCode == KeyEvent.KEYCODE_L) {
+                    mTerminalView.clearScreen();
+                    return true;
+                }
+                if (u >= 'a' && u <= 'z') {
+                    byte ctrlCode = (byte) (u - 'a' + 1);
+                    if (mSession != null) mSession.write(new byte[]{ctrlCode});
+                    return true;
+                } else if (u >= 'A' && u <= 'Z') {
+                    byte ctrlCode = (byte) (u - 'A' + 1);
+                    if (mSession != null) mSession.write(new byte[]{ctrlCode});
                     return true;
                 }
             }
 
-            // Resolve Alt state for BlackBerry secondary keys / numbers / symbols
+            // Resolve Alt modifier for BlackBerry hardware keys
             int metaState = event.getMetaState();
             if (mAltActive) {
                 metaState |= KeyEvent.META_ALT_ON;
@@ -331,8 +419,37 @@ public class CyberdeckActivity extends Activity {
             }
 
             int unicode = event.getUnicodeChar(metaState);
-            if (unicode > 0) {
-                sendString(String.valueOf((char) unicode));
+            if (unicode <= 0) {
+                unicode = event.getUnicodeChar();
+            }
+
+            // Robust fallback for physical keys on BlackBerry Q5
+            if (unicode <= 0) {
+                if (keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
+                    boolean shift = event.isShiftPressed();
+                    unicode = (shift ? 'A' : 'a') + (keyCode - KeyEvent.KEYCODE_A);
+                } else if (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) {
+                    unicode = '0' + (keyCode - KeyEvent.KEYCODE_0);
+                } else if (keyCode == KeyEvent.KEYCODE_SPACE) {
+                    unicode = ' ';
+                }
+            }
+
+            if (unicode >= 32 && unicode <= 126) {
+                onCharInput((char) unicode);
+                return true;
+            }
+        } else if (event.getAction() == KeyEvent.ACTION_MULTIPLE && event.getKeyCode() == KeyEvent.KEYCODE_UNKNOWN) {
+            String chars = event.getCharacters();
+            if (chars != null) {
+                for (int i = 0; i < chars.length(); i++) {
+                    char c = chars.charAt(i);
+                    if (c == '\n' || c == '\r') {
+                        onEnter();
+                    } else if (c >= 32 && c <= 126) {
+                        onCharInput(c);
+                    }
+                }
                 return true;
             }
         }
