@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v6: Minimalist UI + Full BusyBox symlinks + Library path fix
-    private static final String VERSION_MARKER = ".installed_v6";
+    // Version v7: Root identity wrappers (whoami -> root, id -> uid=0) + help utility
+    private static final String VERSION_MARKER = ".installed_v7";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -43,7 +43,7 @@ public class Installer {
                     tmpDir.setWritable(true, false);
                     tmpDir.setExecutable(true, false);
 
-                    // 1. Copy Static BusyBox Binary
+                    // 1. Install Static Musl Busybox
                     callback.onProgress("installing core...");
                     File busyboxFile = new File(binDir, "busybox");
                     copyAsset(context, "busybox", busyboxFile);
@@ -54,10 +54,69 @@ public class Installer {
                             new String[]{"chmod", "755", busyboxFile.getAbsolutePath()}).waitFor();
                     } catch (Exception ignored) {}
 
-                    // 2. Set up symlinks for all primary Unix utilities
+                    // 2. Install Root Identity Wrappers
+                    callback.onProgress("configuring root...");
+
+                    // whoami -> always returns 'root'
+                    File whoamiFile = new File(binDir, "whoami");
+                    whoamiFile.delete();
+                    writeExecutableScript(whoamiFile, "#!/system/bin/sh\necho \"root\"\n");
+
+                    // id -> returns uid=0(root) gid=0(root)
+                    File idFile = new File(binDir, "id");
+                    idFile.delete();
+                    writeExecutableScript(idFile,
+                        "#!/system/bin/sh\n" +
+                        "if [ \"$1\" = \"-u\" ]; then\n" +
+                        "    echo \"0\"\n" +
+                        "elif [ \"$1\" = \"-g\" ]; then\n" +
+                        "    echo \"0\"\n" +
+                        "elif [ \"$1\" = \"-un\" ] || [ \"$1\" = \"-gn\" ]; then\n" +
+                        "    echo \"root\"\n" +
+                        "else\n" +
+                        "    echo \"uid=0(root) gid=0(root) groups=0(root)\"\n" +
+                        "fi\n"
+                    );
+
+                    // who -> returns root pts/0
+                    File whoFile = new File(binDir, "who");
+                    whoFile.delete();
+                    writeExecutableScript(whoFile,
+                        "#!/system/bin/sh\n" +
+                        "echo \"root     pts/0        $(date +'%Y-%m-%d %H:%M')\"\n"
+                    );
+
+                    // su -> acknowledges root
+                    File suFile = new File(binDir, "su");
+                    suFile.delete();
+                    writeExecutableScript(suFile,
+                        "#!/system/bin/sh\n" +
+                        "echo \"Already running as root (UID 0)\"\n" +
+                        "exec /system/bin/sh -i\n"
+                    );
+
+                    // help -> command cheatsheet
+                    File helpFile = new File(binDir, "help");
+                    helpFile.delete();
+                    writeExecutableScript(helpFile,
+                        "#!/system/bin/sh\n" +
+                        "echo \"================================================\"\n" +
+                        "echo \"  Q5 Terminal - Commands Reference\"\n" +
+                        "echo \"================================================\"\n" +
+                        "echo \"  Identity : whoami, id, uname -a, uptime\"\n" +
+                        "echo \"  Hardware : cat /proc/cpuinfo, cat /proc/meminfo\"\n" +
+                        "echo \"  Files    : ls -la, pwd, cd, mkdir, rm, cp, mv, vi\"\n" +
+                        "echo \"  Storage  : df -h, free, du -sh\"\n" +
+                        "echo \"  Network  : ifconfig, netstat, ping, wget\"\n" +
+                        "echo \"  Tools    : grep, find, which, tar, sed, awk\"\n" +
+                        "echo \"  Core     : busybox --help (350+ Unix utilities)\"\n" +
+                        "echo \"================================================\"\n"
+                    );
+
+                    // 3. Set up symlinks for all other BusyBox tools
                     callback.onProgress("linking tools...");
                     String[] applets = new String[]{
-                        "whoami", "id", "ls", "cat", "ps", "top", "vi", "grep", "pwd",
+                        "ls", "cat", "ps", "top", "vi", "grep", "pwd",
                         "mkdir", "rm", "cp", "mv", "chmod", "chown", "touch", "echo",
                         "clear", "find", "sed", "awk", "tar", "gzip", "wget", "curl",
                         "df", "free", "uname", "uptime", "head", "tail", "more", "less",
@@ -77,7 +136,7 @@ public class Installer {
                         }
                     }
 
-                    // Best effort --install -s
+                    // Best-effort full install
                     try {
                         Process p = Runtime.getRuntime().exec(new String[]{
                             busyboxFile.getAbsolutePath(), "--install", "-s",
@@ -86,7 +145,7 @@ public class Installer {
                         p.waitFor();
                     } catch (Exception ignored) {}
 
-                    // 3. Mark as installed
+                    // 4. Mark as installed
                     File marker = new File(filesDir, VERSION_MARKER);
                     marker.createNewFile();
 
@@ -98,6 +157,17 @@ public class Installer {
                 }
             }
         }).start();
+    }
+
+    private static void writeExecutableScript(File file, String content) {
+        try {
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(content.getBytes());
+            fos.close();
+            file.setReadable(true, false);
+            file.setExecutable(true, false);
+            Runtime.getRuntime().exec(new String[]{"chmod", "755", file.getAbsolutePath()}).waitFor();
+        } catch (Exception ignored) {}
     }
 
     private static void copyAsset(Context context, String assetName, File outFile) throws Exception {

@@ -113,7 +113,7 @@ public class CyberdeckActivity extends Activity {
         mInputLine.setLength(0);
         mTerminalView.clearScreen();
         if (reinstall) {
-            File marker = new File(getFilesDir(), ".installed_v6");
+            File marker = new File(getFilesDir(), ".installed_v7");
             marker.delete();
             checkAndStart();
             Toast.makeText(this, "Reinstalling...", Toast.LENGTH_SHORT).show();
