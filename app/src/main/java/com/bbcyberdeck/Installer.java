@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v7: Root identity wrappers (whoami -> root, id -> uid=0) + help utility
-    private static final String VERSION_MARKER = ".installed_v7";
+    // Version v8: Prompt inline cursor fix + built-in fetch, matrix, sysinfo utilities
+    private static final String VERSION_MARKER = ".installed_v8";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -55,17 +55,13 @@ public class Installer {
                     } catch (Exception ignored) {}
 
                     // 2. Install Root Identity Wrappers
-                    callback.onProgress("configuring root...");
+                    callback.onProgress("configuring tools...");
 
-                    // whoami -> always returns 'root'
-                    File whoamiFile = new File(binDir, "whoami");
-                    whoamiFile.delete();
-                    writeExecutableScript(whoamiFile, "#!/system/bin/sh\necho \"root\"\n");
+                    // whoami
+                    writeExecutableScript(new File(binDir, "whoami"), "#!/system/bin/sh\necho \"root\"\n");
 
-                    // id -> returns uid=0(root) gid=0(root)
-                    File idFile = new File(binDir, "id");
-                    idFile.delete();
-                    writeExecutableScript(idFile,
+                    // id
+                    writeExecutableScript(new File(binDir, "id"),
                         "#!/system/bin/sh\n" +
                         "if [ \"$1\" = \"-u\" ]; then\n" +
                         "    echo \"0\"\n" +
@@ -78,43 +74,74 @@ public class Installer {
                         "fi\n"
                     );
 
-                    // who -> returns root pts/0
-                    File whoFile = new File(binDir, "who");
-                    whoFile.delete();
-                    writeExecutableScript(whoFile,
+                    // who
+                    writeExecutableScript(new File(binDir, "who"),
                         "#!/system/bin/sh\n" +
                         "echo \"root     pts/0        $(date +'%Y-%m-%d %H:%M')\"\n"
                     );
 
-                    // su -> acknowledges root
-                    File suFile = new File(binDir, "su");
-                    suFile.delete();
-                    writeExecutableScript(suFile,
+                    // su
+                    writeExecutableScript(new File(binDir, "su"),
                         "#!/system/bin/sh\n" +
                         "echo \"Already running as root (UID 0)\"\n" +
                         "exec /system/bin/sh -i\n"
                     );
 
-                    // help -> command cheatsheet
-                    File helpFile = new File(binDir, "help");
-                    helpFile.delete();
-                    writeExecutableScript(helpFile,
+                    // fetch (Neo-fetch style hardware summary)
+                    writeExecutableScript(new File(binDir, "fetch"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"\"\n" +
+                        "echo \"       ____  _____\n" +
+                        "      / __ \\/ ___/    OS     : QCyberdeck v2.4\n" +
+                        "     / / / /\\__ \\     Host   : BlackBerry Q5 (Qualcomm MSM8960)\n" +
+                        "    / /_/ /___/ /     Kernel : $(uname -r 2>/dev/null || echo '3.4.0-QNX')\n" +
+                        "    \\___\\_\\____/      Memory : 2048 MB LPDDR2\n" +
+                        "                      Storage: $(df -h /sdcard 2>/dev/null | tail -n 1 | awk '{print $4}') free on /sdcard\n" +
+                        "                      User   : root@q5 (UID 0)\"\n" +
+                        "echo \"\"\n"
+                    );
+
+                    // matrix (Streaming retro cyber rain)
+                    writeExecutableScript(new File(binDir, "matrix"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"=== CYBER STREAM START ===\"\n" +
+                        "for i in $(seq 1 35); do\n" +
+                        "  echo \"01000010 01000010 00110001 00110000 01010001 00110101\"\n" +
+                        "  sleep 0.04\n" +
+                        "done\n" +
+                        "echo \"=== CYBER STREAM COMPLETE ===\"\n"
+                    );
+
+                    // sysinfo (Hardware telemetry)
+                    writeExecutableScript(new File(binDir, "sysinfo"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"=== BlackBerry Q5 Telemetry ===\"\n" +
+                        "echo \"CPU     : Qualcomm MSM8960 Krait Dual-Core\"\n" +
+                        "[ -f /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq ] && echo \"Clock   : $(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq) kHz\"\n" +
+                        "[ -f /sys/class/power_supply/battery/uevent ] && grep -E \"VOLTAGE|TEMP|CAPACITY|STATUS\" /sys/class/power_supply/battery/uevent\n" +
+                        "echo \"Uptime  : $(uptime)\"\n" +
+                        "echo \"===============================\"\n"
+                    );
+
+                    // help
+                    writeExecutableScript(new File(binDir, "help"),
                         "#!/system/bin/sh\n" +
                         "echo \"================================================\"\n" +
-                        "echo \"  Q5 Terminal - Commands Reference\"\n" +
+                        "echo \"  QCyberdeck Quick Reference\"\n" +
                         "echo \"================================================\"\n" +
-                        "echo \"  Identity : whoami, id, uname -a, uptime\"\n" +
-                        "echo \"  Hardware : cat /proc/cpuinfo, cat /proc/meminfo\"\n" +
+                        "echo \"  Specs    : fetch, sysinfo, uname -a, uptime\"\n" +
+                        "echo \"  Identity : whoami, id\"\n" +
+                        "echo \"  Visuals  : matrix\"\n" +
                         "echo \"  Files    : ls -la, pwd, cd, mkdir, rm, cp, mv, vi\"\n" +
-                        "echo \"  Storage  : df -h, free, du -sh\"\n" +
-                        "echo \"  Network  : ifconfig, netstat, ping, wget\"\n" +
-                        "echo \"  Tools    : grep, find, which, tar, sed, awk\"\n" +
-                        "echo \"  Core     : busybox --help (350+ Unix utilities)\"\n" +
+                        "echo \"  Archives : tar -czvf, gzip, bzip2\"\n" +
+                        "echo \"  Network  : ifconfig, netstat, ping, nc, wget\"\n" +
+                        "echo \"  Tools    : grep, awk, sed, find, strings, hexdump\"\n" +
+                        "echo \"  All 350+ : busybox --help\"\n" +
                         "echo \"================================================\"\n"
                     );
 
                     // 3. Set up symlinks for all other BusyBox tools
-                    callback.onProgress("linking tools...");
+                    callback.onProgress("linking utilities...");
                     String[] applets = new String[]{
                         "ls", "cat", "ps", "top", "vi", "grep", "pwd",
                         "mkdir", "rm", "cp", "mv", "chmod", "chown", "touch", "echo",
@@ -122,7 +149,8 @@ public class Installer {
                         "df", "free", "uname", "uptime", "head", "tail", "more", "less",
                         "which", "kill", "sleep", "date", "env", "true", "false", "test",
                         "wc", "sort", "uniq", "cut", "tr", "tee", "xargs", "strings",
-                        "du", "netstat", "ifconfig", "ping", "stat", "basename", "dirname"
+                        "du", "netstat", "ifconfig", "ping", "stat", "basename", "dirname",
+                        "hexdump", "od", "nc", "traceroute", "base64", "seq"
                     };
 
                     for (String app : applets) {
@@ -161,6 +189,7 @@ public class Installer {
 
     private static void writeExecutableScript(File file, String content) {
         try {
+            if (file.exists()) file.delete();
             FileOutputStream fos = new FileOutputStream(file);
             fos.write(content.getBytes());
             fos.close();

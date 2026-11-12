@@ -113,7 +113,7 @@ public class CyberdeckActivity extends Activity {
         mInputLine.setLength(0);
         mTerminalView.clearScreen();
         if (reinstall) {
-            File marker = new File(getFilesDir(), ".installed_v7");
+            File marker = new File(getFilesDir(), ".installed_v8");
             marker.delete();
             checkAndStart();
             Toast.makeText(this, "Reinstalling...", Toast.LENGTH_SHORT).show();
@@ -154,8 +154,8 @@ public class CyberdeckActivity extends Activity {
 
         if (mSession != null) {
             if (cmd.length() > 0) {
-                // Execute command and print clean green prompt at completion
-                mSession.write(cmd + "\necho \"\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m \"\n");
+                // Execute command and print clean prompt WITHOUT trailing newline so cursor is inline
+                mSession.write(cmd + "\nprintf \"\\033[1;32mroot@q5\\033[0m:\\033[1;34m~#\\033[0m \"\n");
             } else {
                 byte[] p = "\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ".getBytes();
                 mTerminalView.appendOutput(p, 0, p.length);
