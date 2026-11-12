@@ -1,11 +1,13 @@
 package com.bbcyberdeck;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.os.Bundle;
+import android.view.GestureDetector;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Button;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -22,13 +24,10 @@ public class CyberdeckActivity extends Activity {
     private LinearLayout mLayoutInstalling;
     private TextView mTvInstallStatus;
 
-    private Button mBtnCtrl;
-    private Button mBtnAlt;
+    // Gesture detector for minimalist controls (double tap to cycle theme, long press to reset)
+    private GestureDetector mGestureDetector;
 
-    private boolean mCtrlActive = false;
-    private boolean mAltActive = false;
-
-    // Line buffer and command history for seamless terminal interaction
+    // Line buffer and command history for seamless physical keyboard terminal typing
     private final StringBuilder mInputLine = new StringBuilder();
     private final List<String> mHistory = new ArrayList<String>();
     private int mHistoryIndex = -1;
@@ -36,17 +35,47 @@ public class CyberdeckActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // Pure fullscreen - no title, no status bar clutter
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(
+            WindowManager.LayoutParams.FLAG_FULLSCREEN,
+            WindowManager.LayoutParams.FLAG_FULLSCREEN
+        );
+
         setContentView(R.layout.activity_cyberdeck);
 
         mTerminalView = (TerminalView) findViewById(R.id.terminal_view);
         mLayoutInstalling = (LinearLayout) findViewById(R.id.layout_installing);
         mTvInstallStatus = (TextView) findViewById(R.id.tv_install_status);
 
-        setupTopBar();
-        setupBottomBar();
+        setupGestures();
 
         initSession();
         checkAndStart();
+    }
+
+    private void setupGestures() {
+        mGestureDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDoubleTap(MotionEvent e) {
+                mTerminalView.cycleTheme();
+                return true;
+            }
+
+            @Override
+            public void onLongPress(MotionEvent e) {
+                restartSession(false);
+            }
+        });
+
+        mTerminalView.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                mGestureDetector.onTouchEvent(event);
+                return false; // Allow TerminalView touch scroll to work normally
+            }
+        });
     }
 
     private void initSession() {
@@ -67,40 +96,12 @@ public class CyberdeckActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        String msg = "\r\n\r\n\u001B[1;31m[Session finished: exit code " + exitCode + "]\u001B[0m\r\n"
-                                + "\u001B[1;33mTap 'RESET' at top right to restart session.\u001B[0m\r\n";
+                        String msg = "\r\n\r\n\u001B[1;31m[Process exited with code " + exitCode + "]\u001B[0m\r\n"
+                                + "\u001B[1;33mLong-press screen to restart.\u001B[0m\r\n";
                         byte[] bytes = msg.getBytes();
                         mTerminalView.appendOutput(bytes, 0, bytes.length);
-                        Toast.makeText(CyberdeckActivity.this, "Session finished (" + exitCode + ")", Toast.LENGTH_SHORT).show();
                     }
                 });
-            }
-        });
-    }
-
-    private void setupTopBar() {
-        Button btnTheme = (Button) findViewById(R.id.btn_theme);
-        btnTheme.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mTerminalView.cycleTheme();
-            }
-        });
-
-        Button btnRestart = (Button) findViewById(R.id.btn_restart);
-        btnRestart.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                restartSession(false);
-            }
-        });
-
-        // Long-press reset forces complete re-installation of core binaries
-        btnRestart.setOnLongClickListener(new View.OnLongClickListener() {
-            @Override
-            public boolean onLongClick(View v) {
-                restartSession(true);
-                return true;
             }
         });
     }
@@ -123,111 +124,11 @@ public class CyberdeckActivity extends Activity {
         }
     }
 
-    private void setupBottomBar() {
-        mBtnCtrl = (Button) findViewById(R.id.btn_ctrl);
-        mBtnCtrl.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mCtrlActive = !mCtrlActive;
-                updateModifierColors();
-            }
-        });
-
-        mBtnAlt = (Button) findViewById(R.id.btn_alt);
-        mBtnAlt.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mAltActive = !mAltActive;
-                updateModifierColors();
-            }
-        });
-
-        findViewById(R.id.btn_tab).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('\t'); }
-        });
-
-        findViewById(R.id.btn_esc).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mSession != null) mSession.write(new byte[]{0x1B});
-            }
-        });
-
-        findViewById(R.id.btn_pipe).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('|'); }
-        });
-
-        findViewById(R.id.btn_tilde).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('~'); }
-        });
-
-        findViewById(R.id.btn_slash).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('/'); }
-        });
-
-        findViewById(R.id.btn_backslash).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('\\'); }
-        });
-
-        findViewById(R.id.btn_dash).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onCharInput('-'); }
-        });
-
-        findViewById(R.id.btn_up).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onHistoryUp(); }
-        });
-
-        findViewById(R.id.btn_down).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) { onHistoryDown(); }
-        });
-
-        findViewById(R.id.btn_left).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Future cursor navigation
-            }
-        });
-
-        findViewById(R.id.btn_right).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Future cursor navigation
-            }
-        });
-    }
-
-    private void updateModifierColors() {
-        if (mCtrlActive) {
-            mBtnCtrl.setBackgroundColor(Color.rgb(0, 140, 60));
-            mBtnCtrl.setTextColor(Color.WHITE);
-        } else {
-            mBtnCtrl.setBackgroundColor(Color.rgb(22, 22, 22));
-            mBtnCtrl.setTextColor(Color.rgb(136, 136, 136));
-        }
-
-        if (mAltActive) {
-            mBtnAlt.setBackgroundColor(Color.rgb(180, 110, 0));
-            mBtnAlt.setTextColor(Color.WHITE);
-        } else {
-            mBtnAlt.setBackgroundColor(Color.rgb(22, 22, 22));
-            mBtnAlt.setTextColor(Color.rgb(136, 136, 136));
-        }
-    }
-
-    // --- Line Editing & Local Echo Core ---
+    // --- Line Editing & Instant Echo ---
 
     private void onCharInput(char c) {
         mInputLine.append(c);
         mTerminalView.scrollToBottom();
-        // Instant visual feedback for physical keyboard
         mTerminalView.appendOutput(new byte[]{(byte) c}, 0, 1);
     }
 
@@ -235,7 +136,6 @@ public class CyberdeckActivity extends Activity {
         if (mInputLine.length() > 0) {
             mInputLine.deleteCharAt(mInputLine.length() - 1);
             mTerminalView.scrollToBottom();
-            // Erase character from terminal: backspace, space, backspace
             mTerminalView.appendOutput(new byte[]{'\b', ' ', '\b'}, 0, 3);
         }
     }
@@ -329,7 +229,7 @@ public class CyberdeckActivity extends Activity {
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
-                            mTvInstallStatus.setText("Installation Error: " + error);
+                            mTvInstallStatus.setText("error: " + error);
                         }
                     });
                 }
@@ -340,18 +240,26 @@ public class CyberdeckActivity extends Activity {
         }
     }
 
+    // --- BlackBerry Q5 Physical Keyboard Key Handler ---
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
 
-            // Hardware Back button on BlackBerry: clear current line if typing, else send ESC
+            // Hardware Back button on BlackBerry: clear current typed line or send ESC
             if (keyCode == KeyEvent.KEYCODE_BACK) {
                 if (mInputLine.length() > 0) {
                     replaceInputLine("");
                 } else if (mSession != null) {
                     mSession.write(new byte[]{0x1B});
                 }
+                return true;
+            }
+
+            // Volume Up cycles terminal theme
+            if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                mTerminalView.cycleTheme();
                 return true;
             }
 
@@ -385,11 +293,8 @@ public class CyberdeckActivity extends Activity {
                 return true;
             }
 
-            // Check CTRL modifier combinations
-            if (mCtrlActive || (event.getMetaState() & KeyEvent.META_CTRL_ON) != 0) {
-                mCtrlActive = false;
-                updateModifierColors();
-
+            // Check if CTRL is pressed on hardware keyboard
+            if ((event.getMetaState() & KeyEvent.META_CTRL_ON) != 0) {
                 int u = event.getUnicodeChar();
                 if (u == 'c' || u == 'C' || keyCode == KeyEvent.KEYCODE_C) {
                     onCtrlC();
@@ -410,20 +315,14 @@ public class CyberdeckActivity extends Activity {
                 }
             }
 
-            // Resolve Alt modifier for BlackBerry hardware keys
+            // Physical character resolution on BlackBerry Q5
             int metaState = event.getMetaState();
-            if (mAltActive) {
-                metaState |= KeyEvent.META_ALT_ON;
-                mAltActive = false;
-                updateModifierColors();
-            }
-
             int unicode = event.getUnicodeChar(metaState);
             if (unicode <= 0) {
                 unicode = event.getUnicodeChar();
             }
 
-            // Robust fallback for physical keys on BlackBerry Q5
+            // Direct hardware fallback for BlackBerry Q5 keyboard layout
             if (unicode <= 0) {
                 if (keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
                     boolean shift = event.isShiftPressed();
