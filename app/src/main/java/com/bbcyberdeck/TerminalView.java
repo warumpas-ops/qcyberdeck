@@ -25,7 +25,6 @@ public class TerminalView extends View {
     private int mColorBg;
     private int mColorFg;
     private int mColorCursor;
-    private int mColorHeader;
 
     private Paint mTextPaint;
     private Paint mBgPaint;
@@ -65,7 +64,7 @@ public class TerminalView extends View {
     private void init() {
         mTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mTextPaint.setTypeface(Typeface.MONOSPACE);
-        mTextPaint.setTextSize(24f); // Crisp for 720x720
+        mTextPaint.setTextSize(24f);
 
         mBgPaint = new Paint();
         mCursorPaint = new Paint();
@@ -82,26 +81,22 @@ public class TerminalView extends View {
                 mColorBg     = Color.rgb(10, 14, 20);
                 mColorFg     = Color.rgb(0, 255, 102);   // Phosphor neon green
                 mColorCursor = Color.rgb(0, 255, 102);
-                mColorHeader = Color.rgb(0, 180, 70);
                 break;
             case THEME_AMBER_CRT:
                 mColorBg     = Color.rgb(18, 14, 6);
                 mColorFg     = Color.rgb(255, 176, 0);   // Amber vintage CRT
                 mColorCursor = Color.rgb(255, 176, 0);
-                mColorHeader = Color.rgb(200, 140, 0);
                 break;
             case THEME_CYBER_BLUE:
                 mColorBg     = Color.rgb(8, 16, 26);
                 mColorFg     = Color.rgb(0, 210, 255);   // Cyberdeck Cyan
                 mColorCursor = Color.rgb(0, 210, 255);
-                mColorHeader = Color.rgb(0, 150, 200);
                 break;
             case THEME_CLASSIC_WHITE:
             default:
                 mColorBg     = Color.rgb(13, 17, 23);
                 mColorFg     = Color.rgb(230, 237, 243); // Clean terminal white
                 mColorCursor = Color.rgb(230, 237, 243);
-                mColorHeader = Color.rgb(150, 160, 175);
                 break;
         }
         mCurrentColor = mColorFg;
@@ -137,10 +132,8 @@ public class TerminalView extends View {
     public synchronized void clearScreen() {
         mLines.clear();
         mColors.clear();
-        for (int i = 0; i < 30; i++) {
-            mLines.add(new StringBuilder());
-            mColors.add(new int[120]);
-        }
+        mLines.add(new StringBuilder());
+        mColors.add(new int[160]);
         mCursorCol = 0;
         mCursorRow = 0;
         postInvalidate();
@@ -158,7 +151,6 @@ public class TerminalView extends View {
         if (mInEscape) {
             mEscapeBuffer.append(c);
             if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')) {
-                // End of ANSI escape sequence
                 handleAnsiSequence(mEscapeBuffer.toString());
                 mInEscape = false;
                 mEscapeBuffer.setLength(0);
@@ -193,7 +185,6 @@ public class TerminalView extends View {
         }
 
         if (c < 32 && c != 0) {
-            // Non-printable control char
             return;
         }
 
@@ -230,7 +221,6 @@ public class TerminalView extends View {
         mCursorRow++;
         ensureLine(mCursorRow);
 
-        // Trim scrollback
         while (mLines.size() > MAX_HISTORY) {
             mLines.remove(0);
             mColors.remove(0);
@@ -251,12 +241,12 @@ public class TerminalView extends View {
             char cmd = seq.charAt(seq.length() - 1);
 
             switch (cmd) {
-                case 'J': // Erase in display
+                case 'J':
                     if ("2".equals(params) || params.isEmpty()) {
                         clearScreen();
                     }
                     break;
-                case 'K': // Erase in line
+                case 'K':
                     if (mCursorRow < mLines.size()) {
                         StringBuilder line = mLines.get(mCursorRow);
                         if (mCursorCol < line.length()) {
@@ -264,7 +254,7 @@ public class TerminalView extends View {
                         }
                     }
                     break;
-                case 'H': // Cursor position
+                case 'H':
                 case 'f':
                     if (params.isEmpty()) {
                         mCursorCol = 0;
@@ -280,7 +270,7 @@ public class TerminalView extends View {
                         } catch (Exception ignored) {}
                     }
                     break;
-                case 'm': // Select Graphic Rendition (Colors)
+                case 'm':
                     parseSgr(params);
                     break;
             }

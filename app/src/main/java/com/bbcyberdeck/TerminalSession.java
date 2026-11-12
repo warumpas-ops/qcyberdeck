@@ -45,20 +45,25 @@ public class TerminalSession {
                     File filesDir = mContext.getFilesDir();
                     File proot = new File(filesDir, "usr/bin/proot");
                     File rootfs = new File(filesDir, "rootfs");
+                    File tmpDir = new File(filesDir, "tmp");
+                    tmpDir.mkdirs();
+                    tmpDir.setReadable(true, false);
+                    tmpDir.setWritable(true, false);
+                    tmpDir.setExecutable(true, false);
+
+                    // Ensure proot is executable
+                    proot.setReadable(true, false);
+                    proot.setExecutable(true, false);
 
                     List<String> cmd = new ArrayList<String>();
                     cmd.add(proot.getAbsolutePath());
+                    cmd.add("--kill-on-exit");
                     // Force fake root (UID 0, GID 0)
                     cmd.add("-0");
                     // Chroot to rootfs
                     cmd.add("-r");
                     cmd.add(rootfs.getAbsolutePath());
-                    // Bind mount /sdcard if available
-                    File sdcard = new File("/sdcard");
-                    if (sdcard.exists()) {
-                        cmd.add("-b");
-                        cmd.add("/sdcard:/sdcard");
-                    }
+
                     // Bind mount /dev, /proc, /sys
                     cmd.add("-b");
                     cmd.add("/dev");
@@ -66,18 +71,37 @@ public class TerminalSession {
                     cmd.add("/proc");
                     cmd.add("-b");
                     cmd.add("/sys");
-                    // Working directory
+
+                    // Bind mount /sdcard only if both host and guest directories exist
+                    File hostSdcard = new File("/sdcard");
+                    File guestSdcard = new File(rootfs, "sdcard");
+                    if (hostSdcard.exists() && guestSdcard.exists()) {
+                        cmd.add("-b");
+                        cmd.add("/sdcard:/sdcard");
+                    }
+
+                    // Working directory inside container
                     cmd.add("-w");
                     cmd.add("/root");
-                    // Execute login shell
-                    cmd.add("/bin/sh");
-                    cmd.add("-l");
+
+                    // Select shell: prefer /bin/sh, fallback to /bin/busybox sh
+                    File shFile = new File(rootfs, "bin/sh");
+                    if (shFile.exists() && shFile.canExecute()) {
+                        cmd.add("/bin/sh");
+                        cmd.add("-l");
+                    } else {
+                        cmd.add("/bin/busybox");
+                        cmd.add("sh");
+                        cmd.add("-l");
+                    }
 
                     ProcessBuilder pb = new ProcessBuilder(cmd);
                     pb.directory(rootfs);
                     pb.redirectErrorStream(true);
 
                     Map<String, String> env = pb.environment();
+                    env.put("PROOT_TMP_DIR", tmpDir.getAbsolutePath());
+                    env.put("TMPDIR", tmpDir.getAbsolutePath());
                     env.put("HOME", "/root");
                     env.put("USER", "root");
                     env.put("TERM", "xterm-256color");
@@ -86,6 +110,7 @@ public class TerminalSession {
                     env.put("LANG", "C.UTF-8");
                     env.put("PROOT_NO_SECCOMP", "1"); // Critical for older Android kernels like 4.3!
 
+                    Log.i(TAG, "Launching PRoot: " + cmd);
                     mProcess = pb.start();
                     mStdin = mProcess.getOutputStream();
                     mStdout = mProcess.getInputStream();
@@ -99,16 +124,22 @@ public class TerminalSession {
                         }
                     }
 
-                    int exitCode = mProcess.waitFor();
+                    int exitCode = -1;
+                    try {
+                        exitCode = mProcess.waitFor();
+                    } catch (Exception ignored) {}
                     mRunning = false;
+
+                    Log.w(TAG, "Process exited with code: " + exitCode);
                     if (mListener != null) {
                         mListener.onProcessExited(exitCode);
                     }
-                } catch (Exception e) {
-                    Log.e(TAG, "Process failed", e);
+                } catch (Throwable e) {
+                    Log.e(TAG, "Process start failed", e);
                     mRunning = false;
                     if (mListener != null) {
-                        byte[] err = ("\r\n[CRITICAL ERROR: " + e.getMessage() + "]\r\n").getBytes();
+                        String errMsg = "\r\n\033[1;31m[CRITICAL LAUNCH ERROR: " + e.getMessage() + "]\033[0m\r\n";
+                        byte[] err = errMsg.getBytes();
                         mListener.onOutput(err, 0, err.length);
                         mListener.onProcessExited(-1);
                     }

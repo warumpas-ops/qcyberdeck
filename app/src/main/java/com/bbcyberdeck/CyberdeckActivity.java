@@ -10,6 +10,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.File;
+
 public class CyberdeckActivity extends Activity {
 
     private TerminalView mTerminalView;
@@ -36,6 +38,11 @@ public class CyberdeckActivity extends Activity {
         setupTopBar();
         setupBottomBar();
 
+        initSession();
+        checkAndStart();
+    }
+
+    private void initSession() {
         mSession = new TerminalSession(this);
         mSession.setOutputListener(new TerminalSession.OutputListener() {
             @Override
@@ -53,13 +60,15 @@ public class CyberdeckActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
+                        String msg = "\r\n\r\n\033[1;31m[Session closed with exit code " + exitCode + "]\033[0m\r\n"
+                                + "\033[1;33mTap 'RESET' to restart session, or long-press 'RESET' to re-extract rootfs.\033[0m\r\n";
+                        byte[] bytes = msg.getBytes();
+                        mTerminalView.appendOutput(bytes, 0, bytes.length);
                         Toast.makeText(CyberdeckActivity.this, "Session closed (exit " + exitCode + ")", Toast.LENGTH_SHORT).show();
                     }
                 });
             }
         });
-
-        checkAndStart();
     }
 
     private void setupTopBar() {
@@ -79,8 +88,25 @@ public class CyberdeckActivity extends Activity {
                     mSession.kill();
                 }
                 mTerminalView.clearScreen();
+                initSession();
                 mSession.start();
                 Toast.makeText(CyberdeckActivity.this, "Session restarted", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        // Long-press reset forces re-installation
+        btnRestart.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override
+            public boolean onLongClick(View v) {
+                if (mSession != null) {
+                    mSession.kill();
+                }
+                File marker = new File(getFilesDir(), ".installed_v2");
+                marker.delete();
+                mTerminalView.clearScreen();
+                checkAndStart();
+                Toast.makeText(CyberdeckActivity.this, "Reinstalling rootfs...", Toast.LENGTH_SHORT).show();
+                return true;
             }
         });
     }
@@ -210,6 +236,7 @@ public class CyberdeckActivity extends Activity {
                         @Override
                         public void run() {
                             mLayoutInstalling.setVisibility(View.GONE);
+                            initSession();
                             mSession.start();
                         }
                     });

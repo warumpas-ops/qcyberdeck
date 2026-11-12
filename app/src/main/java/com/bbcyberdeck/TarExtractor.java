@@ -7,6 +7,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PushbackInputStream;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.zip.GZIPInputStream;
 
 public class TarExtractor {
@@ -57,11 +59,7 @@ public class TarExtractor {
                 targetFile.mkdirs();
             } else if (type == '2' || type == '1') {
                 targetFile.getParentFile().mkdirs();
-                try {
-                    createSymlink(linkName, targetFile.getAbsolutePath());
-                } catch (Throwable t) {
-                    Log.w(TAG, "Symlink error for " + name + " -> " + linkName);
-                }
+                createSymlink(linkName, targetFile.getAbsolutePath());
             } else {
                 targetFile.getParentFile().mkdirs();
                 if (targetFile.exists() || !targetFile.canWrite()) {
@@ -80,8 +78,12 @@ public class TarExtractor {
                 }
                 fos.close();
 
-                if (name.startsWith("bin/") || name.startsWith("sbin/") || name.startsWith("usr/bin/") || name.startsWith("usr/sbin/")) {
+                // Make all binaries and shared libraries executable
+                if (name.startsWith("bin/") || name.startsWith("sbin/")
+                        || name.startsWith("usr/bin/") || name.startsWith("usr/sbin/")
+                        || name.startsWith("lib/") || name.startsWith("usr/lib/")) {
                     targetFile.setExecutable(true, false);
+                    targetFile.setReadable(true, false);
                 }
 
                 long pad = (512 - (size % 512)) % 512;
@@ -99,13 +101,56 @@ public class TarExtractor {
         is.close();
     }
 
-    private static void createSymlink(String target, String linkpath) {
-        try {
-            File link = new File(linkpath);
+    public static void createSymlink(String target, String linkpath) {
+        File link = new File(linkpath);
+        if (link.exists()) {
             link.delete();
+        }
+
+        // 1. Direct Linux syscall via libcore / android.system.Os (fastest, no fork/exec)
+        if (tryNativeSymlink(target, linkpath)) {
+            return;
+        }
+
+        // 2. Fallback to exec ln in path
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"ln", "-s", target, linkpath});
+            if (p.waitFor() == 0) return;
+        } catch (Exception ignored) {}
+
+        // 3. Fallback to toolbox ln
+        try {
+            Process p = Runtime.getRuntime().exec(new String[]{"/system/bin/toolbox", "ln", "-s", target, linkpath});
+            if (p.waitFor() == 0) return;
+        } catch (Exception ignored) {}
+
+        // 4. Fallback to /system/bin/ln
+        try {
             Process p = Runtime.getRuntime().exec(new String[]{"/system/bin/ln", "-s", target, linkpath});
             p.waitFor();
         } catch (Exception ignored) {}
+    }
+
+    private static boolean tryNativeSymlink(String target, String linkpath) {
+        // Try Android 5.0+ Os.symlink
+        try {
+            Class<?> osClass = Class.forName("android.system.Os");
+            Method m = osClass.getMethod("symlink", String.class, String.class);
+            m.invoke(null, target, linkpath);
+            return true;
+        } catch (Throwable ignored) {}
+
+        // Try Android 4.0 - 4.4 Libcore.os.symlink
+        try {
+            Class<?> libcoreClass = Class.forName("libcore.io.Libcore");
+            Field osField = libcoreClass.getField("os");
+            Object osInstance = osField.get(null);
+            Method m = osInstance.getClass().getMethod("symlink", String.class, String.class);
+            m.invoke(osInstance, target, linkpath);
+            return true;
+        } catch (Throwable ignored) {}
+
+        return false;
     }
 
     private static int readFully(InputStream is, byte[] b, int off, int len) throws IOException {
