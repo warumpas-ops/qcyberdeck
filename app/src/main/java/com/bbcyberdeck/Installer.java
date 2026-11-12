@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v8: Prompt inline cursor fix + built-in fetch, matrix, sysinfo utilities
-    private static final String VERSION_MARKER = ".installed_v8";
+    // Version v9: Added cowsay, skull, deck, hack, train, clock ASCII utilities
+    private static final String VERSION_MARKER = ".installed_v9";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -92,7 +92,7 @@ public class Installer {
                         "#!/system/bin/sh\n" +
                         "echo \"\"\n" +
                         "echo \"       ____  _____\n" +
-                        "      / __ \\/ ___/    OS     : QCyberdeck v2.4\n" +
+                        "      / __ \\/ ___/    OS     : QCyberdeck v2.5\n" +
                         "     / / / /\\__ \\     Host   : BlackBerry Q5 (Qualcomm MSM8960)\n" +
                         "    / /_/ /___/ /     Kernel : $(uname -r 2>/dev/null || echo '3.4.0-QNX')\n" +
                         "    \\___\\_\\____/      Memory : 2048 MB LPDDR2\n" +
@@ -112,6 +112,75 @@ public class Installer {
                         "echo \"=== CYBER STREAM COMPLETE ===\"\n"
                     );
 
+                    // cowsay (Unix classic speech bubble)
+                    writeExecutableScript(new File(binDir, "cowsay"),
+                        "#!/system/bin/sh\n" +
+                        "MSG=\"${*:-QCyberdeck online.}\"\n" +
+                        "echo \" -------------------------------------\"\n" +
+                        "echo \"< $MSG >\"\n" +
+                        "echo \" -------------------------------------\"\n" +
+                        "echo \"        \\   ^__^\"\n" +
+                        "echo \"         \\  (oo)\\_______\"\n" +
+                        "echo \"            (__)\\       )\\/\\\"\n" +
+                        "echo \"                ||----w |\"\n" +
+                        "echo \"                ||     ||\"\n"
+                    );
+
+                    // skull (Retro cyber skull ASCII art)
+                    writeExecutableScript(new File(binDir, "skull"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"\"\n" +
+                        "echo \"          .---.\"\n" +
+                        "echo \"         /     \\\"\n" +
+                        "echo \"        | () () |\"\n" +
+                        "echo \"         \\  ^  /\"\n" +
+                        "echo \"          |||||\"\n" +
+                        "echo \"      .---'---'---.\"\n" +
+                        "echo \"     /  CYBERDECK  \\\"\n" +
+                        "echo \"    |  ROOT ACCESS  |\"\n" +
+                        "echo \"     \\_____________//\"\n" +
+                        "echo \"\"\n"
+                    );
+
+                    // deck (Handheld BlackBerry Cyberdeck ASCII art)
+                    writeExecutableScript(new File(binDir, "deck"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"\"\n" +
+                        "echo \"   .------------------------.\"\n" +
+                        "echo \"   | [=] QCYBERDECK    100% |\"\n" +
+                        "echo \"   |------------------------|\"\n" +
+                        "echo \"   | root@q5:~# _           |\"\n" +
+                        "echo \"   | Linux 3.4 MSM8960 2GB  |\"\n" +
+                        "echo \"   |========================|\"\n" +
+                        "echo \"   | [Q][W][E][R][T][Y] ... |\"\n" +
+                        "echo \"   | [A][S][D][F][G][H] ... |\"\n" +
+                        "echo \"   | [ALT][Z][X][C][V] [ENT]|\"\n" +
+                        "echo \"   '------------------------'\"\n" +
+                        "echo \"\"\n"
+                    );
+
+                    // hack (Simulated cyberdeck infiltration sequence)
+                    writeExecutableScript(new File(binDir, "hack"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"[*] Scanning local RF bands... OK\"\n" +
+                        "sleep 0.2\n" +
+                        "echo \"[*] Intercepting subsystem buses... OK\"\n" +
+                        "sleep 0.2\n" +
+                        "echo \"[+] Bypassing sandbox policy... SUCCESS\"\n" +
+                        "sleep 0.2\n" +
+                        "echo \"[+] Gaining ring 0 execution... UID 0 [ROOT]\"\n" +
+                        "sleep 0.2\n" +
+                        "echo \"[!] Cyberdeck node operational.\"\n"
+                    );
+
+                    // clock (ASCII live timestamp)
+                    writeExecutableScript(new File(binDir, "clock"),
+                        "#!/system/bin/sh\n" +
+                        "echo \"  Date   : $(date +'%A, %B %d, %Y')\"\n" +
+                        "echo \"  Time   : $(date +'%H:%M:%S %Z')\"\n" +
+                        "echo \"  Uptime : $(uptime | sed 's/.*up \\([^,]*\\), .*/\\1/' 2>/dev/null)\"\n"
+                    );
+
                     // sysinfo (Hardware telemetry)
                     writeExecutableScript(new File(binDir, "sysinfo"),
                         "#!/system/bin/sh\n" +
@@ -127,11 +196,12 @@ public class Installer {
                     writeExecutableScript(new File(binDir, "help"),
                         "#!/system/bin/sh\n" +
                         "echo \"================================================\"\n" +
-                        "echo \"  QCyberdeck Quick Reference\"\n" +
+                        "echo \"  QCyberdeck Commands Reference\"\n" +
                         "echo \"================================================\"\n" +
-                        "echo \"  Specs    : fetch, sysinfo, uname -a, uptime\"\n" +
+                        "echo \"  ASCII    : fetch, cowsay <msg>, skull, deck\"\n" +
+                        "echo \"  Visuals  : matrix, hack, clock\"\n" +
+                        "echo \"  Hardware : sysinfo, uname -a, uptime, free, df -h\"\n" +
                         "echo \"  Identity : whoami, id\"\n" +
-                        "echo \"  Visuals  : matrix\"\n" +
                         "echo \"  Files    : ls -la, pwd, cd, mkdir, rm, cp, mv, vi\"\n" +
                         "echo \"  Archives : tar -czvf, gzip, bzip2\"\n" +
                         "echo \"  Network  : ifconfig, netstat, ping, nc, wget\"\n" +
