@@ -1,0 +1,61 @@
+1<?xml version="1.0" encoding="utf-8"?>
+2<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+3    package="com.bbcyberdeck"
+4    android:versionCode="1"
+5    android:versionName="1.0.0" >
+6
+7    <uses-sdk
+8        android:minSdkVersion="18"
+9        android:targetSdkVersion="22" />
+10
+11    <uses-permission android:name="android.permission.INTERNET" />
+11-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:5:5-67
+11-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:5:22-64
+12    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+12-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:6:5-79
+12-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:6:22-76
+13    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+13-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:7:5-80
+13-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:7:22-77
+14    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+14-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:8:5-81
+14-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:8:22-78
+15
+16    <application
+16-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:10:5-27:19
+17        android:allowBackup="true"
+17-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:11:9-35
+18        android:debuggable="true"
+19        android:extractNativeLibs="true"
+20        android:hardwareAccelerated="true"
+20-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:15:9-43
+21        android:icon="@drawable/ic_cyberdeck"
+21-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:12:9-46
+22        android:label="QCyberdeck"
+22-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:13:9-35
+23        android:theme="@android:style/Theme.NoTitleBar.Fullscreen" >
+23-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:14:9-67
+24        <activity
+24-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:17:9-26:20
+25            android:name="com.bbcyberdeck.CyberdeckActivity"
+25-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:18:13-46
+26            android:configChanges="orientation|keyboardHidden|screenSize"
+26-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:20:13-74
+27            android:exported="true"
+27-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:19:13-36
+28            android:windowSoftInputMode="adjustResize" >
+28-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:21:13-55
+29            <intent-filter>
+29-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:22:13-25:29
+30                <action android:name="android.intent.action.MAIN" />
+30-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:23:17-69
+30-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:23:25-66
+31
+32                <category android:name="android.intent.category.LAUNCHER" />
+32-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:24:17-77
+32-->C:\Users\Growth\.gemini\antigravity\scratch\bb-cyberdeck\app\src\main\AndroidManifest.xml:24:27-74
+33            </intent-filter>
+34        </activity>
+35    </application>
+36
+37</manifest>

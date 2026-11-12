@@ -1,0 +1,10 @@
+[
+    {
+        "merged": "com.bbcyberdeck.app-merged_res-4:/layout_activity_cyberdeck.xml.flat",
+        "source": "com.bbcyberdeck.app-main-6:/layout/activity_cyberdeck.xml"
+    },
+    {
+        "merged": "com.bbcyberdeck.app-merged_res-4:/drawable_ic_cyberdeck.png.flat",
+        "source": "com.bbcyberdeck.app-main-6:/drawable/ic_cyberdeck.png"
+    }
+]
