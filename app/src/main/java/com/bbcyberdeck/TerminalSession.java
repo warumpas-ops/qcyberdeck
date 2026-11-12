@@ -37,112 +37,126 @@ public class TerminalSession {
         return mRunning;
     }
 
+    private void emit(String msg) {
+        if (mListener != null) {
+            byte[] b = (msg + "\r\n").getBytes();
+            mListener.onOutput(b, 0, b.length);
+        }
+    }
+
     public void start() {
         new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
                     File filesDir = mContext.getFilesDir();
-                    File binDir = new File(filesDir, "usr/bin");
-                    File busybox = new File(binDir, "busybox");
-                    File rootDir = new File(filesDir, "root");
+                    File binDir   = new File(filesDir, "usr/bin");
+                    File busybox  = new File(binDir, "busybox");
+                    File rootDir  = new File(filesDir, "root");
+                    File tmpDir   = new File(filesDir, "tmp");
                     rootDir.mkdirs();
-                    File tmpDir = new File(filesDir, "tmp");
                     tmpDir.mkdirs();
 
-                    // 1. Check if SU (real root) is available on device
-                    boolean suFunctional = false;
-                    String workingSu = null;
-                    String[] suCandidates = new String[]{
-                            "/system/xbin/su", "/system/bin/su", "/sbin/su", "/vendor/bin/su", "su"
-                    };
-                    for (String cand : suCandidates) {
-                        try {
-                            Process p = Runtime.getRuntime().exec(new String[]{cand, "-c", "id"});
-                            if (p.waitFor() == 0) {
-                                suFunctional = true;
-                                workingSu = cand;
-                                break;
-                            }
-                        } catch (Throwable ignored) {}
-                    }
-
-                    // 2. Check if BusyBox is functional
-                    boolean busyboxFunctional = false;
-                    if (busybox.exists() && busybox.canExecute()) {
-                        try {
-                            Process p = Runtime.getRuntime().exec(new String[]{busybox.getAbsolutePath(), "true"});
-                            if (p.waitFor() == 0) {
-                                busyboxFunctional = true;
-                            }
-                        } catch (Throwable ignored) {}
-                    }
-
-                    // Determine shell command to launch
+                    // --- Choose the shell ---
+                    // Priority: busybox sh (if binary runs) → /system/bin/sh (always works)
                     List<String> cmd = new ArrayList<String>();
-                    if (suFunctional) {
-                        Log.i(TAG, "Launching real SU root: " + workingSu);
-                        cmd.add(workingSu);
-                    } else if (busyboxFunctional) {
-                        Log.i(TAG, "Launching BusyBox interactive shell: " + busybox.getAbsolutePath());
+                    boolean usingBusybox = false;
+
+                    if (busybox.exists() && busybox.canExecute()) {
+                        // Quick smoke-test: busybox true (exit 0 means it works)
+                        try {
+                            Process t = Runtime.getRuntime().exec(
+                                new String[]{busybox.getAbsolutePath(), "true"});
+                            int code = t.waitFor();
+                            if (code == 0) {
+                                usingBusybox = true;
+                            }
+                        } catch (Throwable ignored) {}
+                    }
+
+                    if (usingBusybox) {
+                        Log.i(TAG, "Shell: busybox sh");
                         cmd.add(busybox.getAbsolutePath());
                         cmd.add("sh");
                     } else {
-                        Log.i(TAG, "Launching native system shell: /system/bin/sh");
+                        Log.i(TAG, "Shell: /system/bin/sh");
                         cmd.add("/system/bin/sh");
                     }
+
+                    // --- Build PATH: busybox dir first so its applets shadow system ones ---
+                    // Even if busybox --install didn't create symlinks, we can still call
+                    // `busybox <applet>` manually; but most things we need are in /system/bin anyway.
+                    String pathVal = binDir.getAbsolutePath()
+                            + ":/system/xbin:/system/bin:/sbin:/vendor/bin";
 
                     ProcessBuilder pb = new ProcessBuilder(cmd);
                     pb.directory(rootDir);
                     pb.redirectErrorStream(true);
 
                     Map<String, String> env = pb.environment();
-                    env.put("PATH", binDir.getAbsolutePath() + ":/system/xbin:/system/bin:/sbin:/vendor/bin");
-                    env.put("TMPDIR", tmpDir.getAbsolutePath());
-                    env.put("HOME", rootDir.getAbsolutePath());
-                    env.put("USER", "root");
-                    env.put("TERM", "xterm-256color");
+                    env.put("PATH",    pathVal);
+                    env.put("HOME",    rootDir.getAbsolutePath());
+                    env.put("TMPDIR",  tmpDir.getAbsolutePath());
+                    env.put("USER",    "root");
+                    env.put("LOGNAME", "root");
+                    env.put("TERM",    "xterm-256color");
+                    // Remove vars that could confuse a minimal shell
+                    env.remove("LD_PRELOAD");
+                    env.remove("LD_LIBRARY_PATH");
 
-                    Log.i(TAG, "Starting shell process: " + cmd);
+                    Log.i(TAG, "Starting: " + cmd + " PATH=" + pathVal);
                     mProcess = pb.start();
-                    mStdin = mProcess.getOutputStream();
-                    mStdout = mProcess.getInputStream();
+                    mStdin   = mProcess.getOutputStream();
+                    mStdout  = mProcess.getInputStream();
                     mRunning = true;
 
-                    // Send initialization script into stdin
-                    final boolean finalSu = suFunctional;
+                    // --- Send init script after tiny delay so shell stdin is ready ---
+                    // RULES for the init script:
+                    //   1. Use ONLY shell built-ins or commands guaranteed by /system/bin/sh
+                    //      (echo, printf, cd, export, alias — all built-in in ash/dash/sh)
+                    //   2. NO `clear` — it needs terminfo / /usr/bin/clear which may not exist
+                    //      Instead print a few blank lines to visually clear the screen
+                    //   3. NO `echo -e` — use printf instead (POSIX, works in all Android shells)
+                    //   4. Set PS1 LAST so the prompt appears after the banner
+                    //   5. Everything uses only single-byte characters — no UTF-8 art that
+                    //      might confuse the Q5 font renderer
+                    final boolean bb = usingBusybox;
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                Thread.sleep(200);
-                                String initScript =
-                                        "export PATH=\"" + binDir.getAbsolutePath() + ":/system/xbin:/system/bin:/sbin:$PATH\"\n" +
-                                        "export TERM=xterm-256color\n" +
-                                        "export HOME=\"" + rootDir.getAbsolutePath() + "\"\n" +
-                                        "export PS1='\\[\\033[01;32m\\]root@q5\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]# '\n" +
-                                        "cd \"" + rootDir.getAbsolutePath() + "\"\n" +
-                                        "clear\n" +
-                                        "echo -e \"\\033[1;32m====================================================\\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m   ___   _____      __               __          __  \\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m  / _ \\ / ___/_ __ / /  ___ _______ / /__ ____  / /__\\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m / // // /__/ // // _ \\/ -_) __/ _ /  '_// -_)/ // _/\\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m \\__\\_\\\\___/\\_, //_.__/\\__/_/  \\__/_/\\_\\\\__/_//_/\\__\\ \\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m           /___/                                     \\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m====================================================\\033[0m\"\n" +
-                                        "echo -e \"  Hardware: BlackBerry Q5 (Qualcomm MSM8960 2GB)\"\n" +
-                                        (finalSu ?
-                                        "echo -e \"  Status:   \\033[1;31mROOT SHELL (UID 0 - REAL ROOT ON DEVICE)\\033[0m\"\n" :
-                                        "echo -e \"  Status:   \\033[1;32mONLINE (BusyBox Core + 350+ Unix Utilities)\\033[0m\"\n") +
-                                        "echo -e \"  Storage:  /sdcard & device storage mounted\"\n" +
-                                        "echo -e \"----------------------------------------------------\"\n" +
-                                        "echo -e \"  Try: \\033[1;33mls -la, uname -a, ps, top, ifconfig, vi, wget\\033[0m\"\n" +
-                                        "echo -e \"\\033[1;32m====================================================\\033[0m\\n\"\n";
-                                write(initScript);
+                                Thread.sleep(300);
+
+                                // Blank lines act as a soft clear
+                                StringBuilder sb = new StringBuilder();
+                                sb.append("\n\n\n\n\n");
+
+                                // Banner — uses only printf which is a shell built-in
+                                sb.append("printf '\\033[1;32m================================================\\033[0m\\n'\n");
+                                sb.append("printf '\\033[1;32m  QCyberdeck - BlackBerry Q5 Linux Shell\\033[0m\\n'\n");
+                                sb.append("printf '\\033[1;32m================================================\\033[0m\\n'\n");
+                                sb.append("printf '  Device : BlackBerry Q5 (MSM8960 2GB)\\n'\n");
+                                if (bb) {
+                                    sb.append("printf '  Shell  : BusyBox ash (350+ utilities)\\n'\n");
+                                } else {
+                                    sb.append("printf '  Shell  : Android system sh\\n'\n");
+                                }
+                                sb.append("printf '  Try    : ls  ps  top  ifconfig  vi  wget\\n'\n");
+                                sb.append("printf '\\033[1;32m------------------------------------------------\\033[0m\\n'\n");
+                                sb.append("printf '\\n'\n");
+
+                                // Set prompt AFTER the banner
+                                sb.append("export PS1='\\033[1;32mroot@q5\\033[0m:\\033[1;34m\\w\\033[0m# '\n");
+
+                                // cd to home
+                                sb.append("cd \"" + mContext.getFilesDir().getAbsolutePath() + "/root\" 2>/dev/null\n");
+
+                                write(sb.toString());
                             } catch (Exception ignored) {}
                         }
                     }).start();
 
+                    // --- Read loop ---
                     byte[] buf = new byte[4096];
                     int read;
                     while (mRunning && (read = mStdout.read(buf)) != -1) {
@@ -152,22 +166,21 @@ public class TerminalSession {
                     }
 
                     int exitCode = -1;
-                    try {
-                        exitCode = mProcess.waitFor();
-                    } catch (Exception ignored) {}
+                    try { exitCode = mProcess.waitFor(); } catch (Exception ignored) {}
                     mRunning = false;
 
-                    Log.w(TAG, "Session ended with exit code: " + exitCode);
+                    Log.w(TAG, "Session ended, exit code: " + exitCode);
                     if (mListener != null) {
                         mListener.onProcessExited(exitCode);
                     }
+
                 } catch (Throwable e) {
                     Log.e(TAG, "Terminal launch failed", e);
                     mRunning = false;
                     if (mListener != null) {
-                        String errMsg = "\r\n\033[1;31m[CRITICAL LAUNCH ERROR: " + e.getMessage() + "]\033[0m\r\n";
-                        byte[] err = errMsg.getBytes();
-                        mListener.onOutput(err, 0, err.length);
+                        String msg = "\r\n\033[1;31m[LAUNCH ERROR: " + e.getMessage() + "]\033[0m\r\n";
+                        byte[] b = msg.getBytes();
+                        mListener.onOutput(b, 0, b.length);
                         mListener.onProcessExited(-1);
                     }
                 }
@@ -193,9 +206,7 @@ public class TerminalSession {
     public void kill() {
         mRunning = false;
         if (mProcess != null) {
-            try {
-                mProcess.destroy();
-            } catch (Exception ignored) {}
+            try { mProcess.destroy(); } catch (Exception ignored) {}
         }
     }
 }
