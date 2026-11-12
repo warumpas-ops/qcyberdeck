@@ -141,10 +141,10 @@ public class CyberdeckActivity extends Activity {
     }
 
     private void onEnter() {
-        String cmd = mInputLine.toString();
+        String cmd = mInputLine.toString().trim();
         mInputLine.setLength(0);
 
-        if (cmd.trim().length() > 0) {
+        if (cmd.length() > 0) {
             mHistory.add(cmd);
             mHistoryIndex = mHistory.size();
         }
@@ -153,7 +153,13 @@ public class CyberdeckActivity extends Activity {
         mTerminalView.appendOutput(new byte[]{'\r', '\n'}, 0, 2);
 
         if (mSession != null) {
-            mSession.write(cmd + "\n");
+            if (cmd.length() > 0) {
+                // Execute command and print clean green prompt at completion
+                mSession.write(cmd + "\necho \"\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m \"\n");
+            } else {
+                byte[] p = "\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ".getBytes();
+                mTerminalView.appendOutput(p, 0, p.length);
+            }
         }
     }
 

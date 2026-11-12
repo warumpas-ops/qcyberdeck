@@ -68,19 +68,17 @@ public class TerminalSession {
                         } catch (Throwable ignored) {}
                     }
 
+                    // DO NOT pass -i -> prevents "sh: can't access tty; job control turned off"
                     List<String> cmd = new ArrayList<String>();
                     if (usingBusybox) {
-                        Log.i(TAG, "Shell: busybox sh -i");
+                        Log.i(TAG, "Shell: busybox sh");
                         cmd.add(busybox.getAbsolutePath());
                         cmd.add("sh");
-                        cmd.add("-i");
                     } else {
-                        Log.i(TAG, "Shell: /system/bin/sh -i");
+                        Log.i(TAG, "Shell: /system/bin/sh");
                         cmd.add("/system/bin/sh");
-                        cmd.add("-i");
                     }
 
-                    // Put our bin dir first, then system bins
                     String pathVal = binDir.getAbsolutePath()
                             + ":/system/xbin:/system/bin:/sbin:/vendor/bin";
 
@@ -89,15 +87,14 @@ public class TerminalSession {
                     pb.redirectErrorStream(true);
 
                     Map<String, String> env = pb.environment();
-                    env.put("PATH",    pathVal);
-                    env.put("HOME",    rootDir.getAbsolutePath());
-                    env.put("TMPDIR",  tmpDir.getAbsolutePath());
-                    env.put("USER",    "root");
-                    env.put("LOGNAME", "root");
-                    env.put("TERM",    "xterm-256color");
-                    env.put("PS1",     "root@q5:~# ");
+                    env.put("PATH",     pathVal);
+                    env.put("HOME",     rootDir.getAbsolutePath());
+                    env.put("TMPDIR",   tmpDir.getAbsolutePath());
+                    env.put("USER",     "root");
+                    env.put("LOGNAME",  "root");
+                    env.put("TERM",     "xterm-256color");
+                    env.put("PS1",      "root@q5:~# ");
 
-                    // CRITICAL FIX: Ensure Android shared library path is intact
                     String existingLd = System.getenv("LD_LIBRARY_PATH");
                     if (existingLd == null || existingLd.isEmpty()) {
                         existingLd = "/system/lib:/vendor/lib";
@@ -111,10 +108,10 @@ public class TerminalSession {
                     mStdout  = mProcess.getInputStream();
                     mRunning = true;
 
-                    // Minimalist startup greeting
-                    emit("\u001B[1;32mQ5 Terminal\u001B[0m [MSM8960 / ARMv7]\r\nType 'help' or any command.\r\n\r\n");
+                    // Clean startup header with initial prompt
+                    emit("\u001B[1;32mQ5 Terminal\u001B[0m [MSM8960 / ARMv7]\r\nType 'help' or any command.\r\n\r\n\u001B[1;32mroot@q5\u001B[0m:\u001B[1;34m~#\u001B[0m ");
 
-                    // Switch working directory
+                    // Switch working directory silently
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
@@ -129,6 +126,17 @@ public class TerminalSession {
                     int read;
                     while (mRunning && (read = mStdout.read(buf)) != -1) {
                         if (mListener != null) {
+                            String s = new String(buf, 0, read);
+                            // Filter out any stray tty job control warning lines
+                            if (s.contains("can't access tty") || s.contains("job control turned off")) {
+                                s = s.replaceAll("(?m)^.*can't access tty.*$(\\r?\\n)?", "");
+                                s = s.replaceAll("(?m)^.*job control turned off.*$(\\r?\\n)?", "");
+                                byte[] clean = s.getBytes();
+                                if (clean.length > 0) {
+                                    mListener.onOutput(clean, 0, clean.length);
+                                }
+                                continue;
+                            }
                             mListener.onOutput(buf, 0, read);
                         }
                     }
