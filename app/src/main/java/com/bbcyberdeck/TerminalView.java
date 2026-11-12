@@ -6,6 +6,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
 
 import java.util.ArrayList;
@@ -41,10 +42,15 @@ public class TerminalView extends View {
     private int mCursorRow = 0;
     private boolean mCursorVisible = true;
 
+    // Scrolling support
+    private int mScrollOffset = 0; // 0 = at bottom (latest output)
+    private float mLastTouchY;
+    private boolean mIsDragging = false;
+
     // Screen buffer: lines of characters and their attributes
     private final List<StringBuilder> mLines = new ArrayList<StringBuilder>();
     private final List<int[]> mColors = new ArrayList<int[]>();
-    private final int MAX_HISTORY = 1000;
+    private final int MAX_HISTORY = 2000;
 
     // ANSI escape parser state
     private boolean mInEscape = false;
@@ -64,7 +70,7 @@ public class TerminalView extends View {
     private void init() {
         mTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mTextPaint.setTypeface(Typeface.MONOSPACE);
-        mTextPaint.setTextSize(24f);
+        mTextPaint.setTextSize(22f); // Optimized for Q5 720x720 display
 
         mBgPaint = new Paint();
         mCursorPaint = new Paint();
@@ -136,7 +142,43 @@ public class TerminalView extends View {
         mColors.add(new int[160]);
         mCursorCol = 0;
         mCursorRow = 0;
+        mScrollOffset = 0;
         postInvalidate();
+    }
+
+    public void scrollToBottom() {
+        if (mScrollOffset != 0) {
+            mScrollOffset = 0;
+            postInvalidate();
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                mLastTouchY = event.getY();
+                mIsDragging = false;
+                return true;
+            case MotionEvent.ACTION_MOVE:
+                float deltaY = event.getY() - mLastTouchY;
+                if (Math.abs(deltaY) > 6 && mCharHeight > 0) {
+                    mIsDragging = true;
+                    int lineDelta = (int) (deltaY / mCharHeight);
+                    if (lineDelta != 0) {
+                        mScrollOffset = Math.max(0, Math.min(mLines.size() - 5, mScrollOffset + lineDelta));
+                        mLastTouchY = event.getY();
+                        postInvalidate();
+                    }
+                }
+                return true;
+            case MotionEvent.ACTION_UP:
+                if (!mIsDragging) {
+                    scrollToBottom();
+                }
+                return true;
+        }
+        return super.onTouchEvent(event);
     }
 
     public synchronized void appendOutput(byte[] buf, int offset, int length) {
@@ -318,12 +360,13 @@ public class TerminalView extends View {
 
         int totalLines = mLines.size();
         int visibleRows = Math.min(mRows, (int) (getHeight() / mCharHeight));
-        int startLine = Math.max(0, totalLines - visibleRows);
+        int bottomLine = Math.max(0, totalLines - mScrollOffset);
+        int startLine = Math.max(0, bottomLine - visibleRows);
 
         float y = mCharHeight - mCharDescent;
 
         synchronized (this) {
-            for (int i = startLine; i < totalLines; i++) {
+            for (int i = startLine; i < bottomLine; i++) {
                 StringBuilder line = mLines.get(i);
                 int[] colColors = mColors.get(i);
                 int len = line.length();
@@ -337,8 +380,8 @@ public class TerminalView extends View {
                 y += mCharHeight;
             }
 
-            // Draw cursor
-            if (mCursorVisible) {
+            // Draw cursor (only when viewing bottom of screen)
+            if (mCursorVisible && mScrollOffset == 0) {
                 int screenCursorRow = mCursorRow - startLine;
                 if (screenCursorRow >= 0 && screenCursorRow < visibleRows) {
                     float curX = mCursorCol * mCharWidth;

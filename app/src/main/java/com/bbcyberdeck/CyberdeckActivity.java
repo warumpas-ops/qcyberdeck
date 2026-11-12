@@ -60,11 +60,11 @@ public class CyberdeckActivity extends Activity {
                 runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        String msg = "\r\n\r\n\033[1;31m[Session closed with exit code " + exitCode + "]\033[0m\r\n"
-                                + "\033[1;33mTap 'RESET' to restart session, or long-press 'RESET' to re-extract rootfs.\033[0m\r\n";
+                        String msg = "\r\n\r\n\033[1;31m[Session finished: exit code " + exitCode + "]\033[0m\r\n"
+                                + "\033[1;33mTap 'RESET' at top right to restart session.\033[0m\r\n";
                         byte[] bytes = msg.getBytes();
                         mTerminalView.appendOutput(bytes, 0, bytes.length);
-                        Toast.makeText(CyberdeckActivity.this, "Session closed (exit " + exitCode + ")", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(CyberdeckActivity.this, "Session finished (" + exitCode + ")", Toast.LENGTH_SHORT).show();
                     }
                 });
             }
@@ -105,7 +105,7 @@ public class CyberdeckActivity extends Activity {
                 marker.delete();
                 mTerminalView.clearScreen();
                 checkAndStart();
-                Toast.makeText(CyberdeckActivity.this, "Reinstalling rootfs...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(CyberdeckActivity.this, "Reinstalling core...", Toast.LENGTH_SHORT).show();
                 return true;
             }
         });
@@ -206,12 +206,14 @@ public class CyberdeckActivity extends Activity {
 
     private void sendByte(byte b) {
         if (mSession != null) {
+            mTerminalView.scrollToBottom();
             mSession.write(new byte[]{b});
         }
     }
 
     private void sendString(String s) {
         if (mSession != null) {
+            mTerminalView.scrollToBottom();
             mSession.write(s);
         }
     }
@@ -262,6 +264,12 @@ public class CyberdeckActivity extends Activity {
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
+
+            // Back button acts as ESC on BlackBerry physical keyboard terminal
+            if (keyCode == KeyEvent.KEYCODE_BACK) {
+                sendByte((byte) 0x1B);
+                return true;
+            }
 
             // Handle special keys
             if (keyCode == KeyEvent.KEYCODE_ENTER) {
@@ -314,7 +322,15 @@ public class CyberdeckActivity extends Activity {
                 }
             }
 
-            int unicode = event.getUnicodeChar();
+            // Resolve Alt state for BlackBerry secondary keys / numbers / symbols
+            int metaState = event.getMetaState();
+            if (mAltActive) {
+                metaState |= KeyEvent.META_ALT_ON;
+                mAltActive = false;
+                updateModifierColors();
+            }
+
+            int unicode = event.getUnicodeChar(metaState);
             if (unicode > 0) {
                 sendString(String.valueOf((char) unicode));
                 return true;
