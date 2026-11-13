@@ -877,6 +877,179 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
+    // Authentic Linux Neofetch / Fastfetch for BlackBerry 10
+    private void printNeofetch() {
+        Intent bi = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int bLvl = bi != null ? bi.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) : -1;
+        long upMs = android.os.SystemClock.elapsedRealtime();
+        long upHrs = upMs / (1000 * 60 * 60);
+        long upMins = (upMs / (1000 * 60)) % 60;
+
+        StringBuilder sb = new StringBuilder("\r\n");
+        sb.append("\u001B[1;32m          \\  /          \u001B[1;32mroot\u001B[0m@\u001B[1;32mq5\u001B[0m\r\n");
+        sb.append("\u001B[1;32m         .-'`'-.        \u001B[1;37m-------\u001B[0m\r\n");
+        sb.append("\u001B[1;32m       /`  ||   `\\      \u001B[1;36mOS\u001B[0m: BlackBerry 10.3 (QNX Neutrino)\r\n");
+        sb.append("\u001B[1;32m      /   /__\\    \\     \u001B[1;36mHost\u001B[0m: BlackBerry Q5 (SQR100-2)\r\n");
+        sb.append("\u001B[1;32m     '._  `\"\"`  _.'     \u001B[1;36mKernel\u001B[0m: 3.4.0-QNX-Neutrino-6.6.0\r\n");
+        sb.append("\u001B[1;32m        /`-....-'\\       \u001B[1;36mUptime\u001B[0m: ").append(upHrs).append("h ").append(upMins).append("m\r\n");
+        sb.append("\u001B[1;32m      /  (o)(o)(o) \\     \u001B[1;36mShell\u001B[0m: /system/bin/sh (Musl BusyBox)\r\n");
+        sb.append("\u001B[1;32m     | (o)(o)(o)(o) |    \u001B[1;36mDisplay\u001B[0m: 720x720 LCD (328 PPI)\r\n");
+        sb.append("\u001B[1;32m     | (o)(o)(o)(o) |    \u001B[1;36mTerminal\u001B[0m: QCyberdeck CRT Phosphor\r\n");
+        sb.append("\u001B[1;32m      \\ (o)(o)(o)  /     \u001B[1;36mCPU\u001B[0m: Qualcomm MSM8960 (2) @ 1.20GHz\r\n");
+        sb.append("\u001B[1;32m       \\  (o)(o)  /      \u001B[1;36mMemory\u001B[0m: 742MB / 2048MB (LPDDR2)\r\n");
+        sb.append("\u001B[1;32m         `-(o)-'         \u001B[1;36mBattery\u001B[0m: ").append(bLvl > 0 ? (bLvl + "% (Good)") : "Optimal").append("\r\n\r\n");
+        sb.append("                         \u001B[40m   \u001B[41m   \u001B[42m   \u001B[43m   \u001B[44m   \u001B[45m   \u001B[46m   \u001B[47m   \u001B[0m\r\n");
+        sb.append("                         \u001B[100m   \u001B[101m   \u001B[102m   \u001B[103m   \u001B[104m   \u001B[105m   \u001B[106m   \u001B[107m   \u001B[0m\r\n\r\n");
+        byte[] b = sb.toString().getBytes();
+        mTerminalView.appendOutput(b, 0, b.length);
+        printPrompt();
+    }
+
+    // Authentic CBONSAI: Procedural growing bonsai tree animation
+    private void playBonsaiAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int COLS = 48;
+                final int ROWS = 20;
+                final Random rng = new Random();
+                final char[][] screen = new char[ROWS][COLS];
+                final String[][] colorScreen = new String[ROWS][COLS];
+
+                for (int r = 0; r < ROWS; r++) {
+                    for (int c = 0; c < COLS; c++) {
+                        screen[r][c] = ' ';
+                        colorScreen[r][c] = "";
+                    }
+                }
+
+                // Draw pot at rows 16-19
+                String[] pot = {
+                    "       :___________________________:       ",
+                    "        \\_________________________/        ",
+                    "             )_______________(             ",
+                    "           /__|_____________|__\\           "
+                };
+                for (int r = 0; r < pot.length; r++) {
+                    int startX = (COLS - pot[r].length()) / 2;
+                    for (int c = 0; c < pot[r].length(); c++) {
+                        if (startX + c < COLS) {
+                            screen[16 + r][startX + c] = pot[r].charAt(c);
+                            colorScreen[16 + r][startX + c] = "\u001B[1;36m";
+                        }
+                    }
+                }
+
+                int curX = COLS / 2;
+                int curY = 15;
+                screen[curY][curX] = '|';
+                colorScreen[curY][curX] = "\u001B[1;33m";
+
+                List<int[]> branches = new ArrayList<int[]>();
+                branches.add(new int[]{curX, curY, 0});
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.clearScreen();
+                    }
+                });
+
+                // Step 1: Grow trunk & branches
+                for (int step = 0; step < 16 && mIsAnimating; step++) {
+                    List<int[]> nextBranches = new ArrayList<int[]>();
+                    for (int[] b : branches) {
+                        int bx = b[0];
+                        int by = b[1];
+                        int lvl = b[2];
+                        if (by <= 4) continue;
+
+                        int dx = rng.nextInt(3) - 1;
+                        int ny = by - 1;
+                        int nx = bx + dx;
+
+                        if (ny >= 3 && nx >= 3 && nx < COLS - 3) {
+                            char ch = dx == 0 ? '|' : (dx < 0 ? '/' : '\\');
+                            screen[ny][nx] = ch;
+                            colorScreen[ny][nx] = "\u001B[1;33m";
+                            nextBranches.add(new int[]{nx, ny, lvl + 1});
+
+                            if (rng.nextFloat() < 0.40f && lvl < 4) {
+                                int sdx = dx != 0 ? -dx : (rng.nextBoolean() ? 1 : -1);
+                                int snx = bx + sdx;
+                                if (snx >= 3 && snx < COLS - 3) {
+                                    char sch = sdx < 0 ? '/' : '\\';
+                                    screen[ny][snx] = sch;
+                                    colorScreen[ny][snx] = "\u001B[1;33m";
+                                    nextBranches.add(new int[]{snx, ny, lvl + 1});
+                                }
+                            }
+                        }
+                    }
+                    branches = nextBranches;
+                    renderBonsaiFrame(screen, colorScreen, ROWS, COLS);
+                    try { Thread.sleep(70); } catch (Exception ignored) {}
+                }
+
+                // Step 2: Bloom foliage clusters around branches
+                final char[] leaves = {'&', '%', '@', '#', '*'};
+                for (int y = 3; y < 13 && mIsAnimating; y++) {
+                    for (int x = 3; x < COLS - 3; x++) {
+                        if (screen[y][x] == '/' || screen[y][x] == '\\' || screen[y][x] == '|') {
+                            for (int dy = -1; dy <= 1; dy++) {
+                                for (int dx = -2; dx <= 2; dx++) {
+                                    int ny = y + dy;
+                                    int nx = x + dx;
+                                    if (ny >= 2 && ny < 14 && nx >= 2 && nx < COLS - 2 && screen[ny][nx] == ' ') {
+                                        if (rng.nextFloat() < 0.65f) {
+                                            screen[ny][nx] = leaves[rng.nextInt(leaves.length)];
+                                            colorScreen[ny][nx] = "\u001B[1;32m";
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    renderBonsaiFrame(screen, colorScreen, ROWS, COLS);
+                    try { Thread.sleep(90); } catch (Exception ignored) {}
+                }
+
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+
+            private void renderBonsaiFrame(char[][] screen, String[][] colors, int rows, int cols) {
+                StringBuilder frame = new StringBuilder("\u001B[H");
+                for (int r = 0; r < rows; r++) {
+                    String lastCol = "";
+                    for (int c = 0; c < cols; c++) {
+                        String col = colors[r][c];
+                        if (!col.equals(lastCol)) {
+                            frame.append(col.isEmpty() ? "\u001B[0m" : col);
+                            lastCol = col;
+                        }
+                        frame.append(screen[r][c]);
+                    }
+                    frame.append("\u001B[0m\r\n");
+                }
+                final byte[] b = frame.toString().getBytes();
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput(b, 0, b.length);
+                    }
+                });
+            }
+        }).start();
+    }
+
     // Classic Unix Fortunes Database
     private static final String[] FORTUNES = {
         "The best way to predict the future is to invent it. -- Alan Kay",
@@ -942,6 +1115,16 @@ public class CyberdeckActivity extends Activity {
 
         if (cmd.equals("nyancat")) {
             playNyanCatAnimation();
+            return;
+        }
+
+        if (cmd.equals("neofetch") || cmd.equals("fastfetch")) {
+            printNeofetch();
+            return;
+        }
+
+        if (cmd.equals("cbonsai") || cmd.equals("bonsai")) {
+            playBonsaiAnimation();
             return;
         }
 
@@ -1106,7 +1289,8 @@ public class CyberdeckActivity extends Activity {
                 "\r\n================================================\r\n" +
                 "  QCyberdeck Canonical Ubuntu Extensions\r\n" +
                 "================================================\r\n" +
-                "  Ubuntu Classics : sl, asciiquarium, cmatrix, aafire, pipes, nyancat\r\n" +
+                "  Ubuntu Classics : sl, asciiquarium, cmatrix, aafire, pipes, nyancat, cbonsai\r\n" +
+                "  System & Info   : neofetch, battery, sysinfo, uname -a, uptime, whoami\r\n" +
                 "  ASCII Fun       : fortune, cowsay <msg>, cowthink <msg>, skull, deck, clock\r\n" +
                 "  Telemetry       : battery, sysinfo, uname -a, uptime\r\n" +
                 "  Identity        : whoami, id\r\n" +
