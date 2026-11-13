@@ -9,8 +9,8 @@ android {
         applicationId 'com.bbcyberdeck'
         minSdkVersion 18
         targetSdkVersion 22
-        versionCode 19
-        versionName '3.6.1'
+        versionCode 20
+        versionName '3.7.0'
         ndk {
             abiFilters 'armeabi-v7a'
         }

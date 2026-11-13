@@ -9,8 +9,8 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v10: Added tree command
-    private static final String VERSION_MARKER = ".installed_v10";
+    // Version v12: Added pre-installed SSH, Git, Nano, and pkg package manager
+    private static final String VERSION_MARKER = ".installed_v12";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -53,6 +53,59 @@ public class Installer {
                         Runtime.getRuntime().exec(
                             new String[]{"chmod", "755", busyboxFile.getAbsolutePath()}).waitFor();
                     } catch (Exception ignored) {}
+
+                    // Install Static Nano Editor
+                    callback.onProgress("installing nano...");
+                    File nanoFile = new File(binDir, "nano");
+                    copyAsset(context, "nano", nanoFile);
+                    nanoFile.setReadable(true, false);
+                    nanoFile.setExecutable(true, false);
+                    try {
+                        Runtime.getRuntime().exec(
+                            new String[]{"chmod", "755", nanoFile.getAbsolutePath()}).waitFor();
+                    } catch (Exception ignored) {}
+
+                    // Install Static Dropbear SSH multi-binary
+                    callback.onProgress("installing ssh & scp...");
+                    File dropbearFile = new File(binDir, "dropbearmulti");
+                    copyAsset(context, "dropbearmulti", dropbearFile);
+                    dropbearFile.setReadable(true, false);
+                    dropbearFile.setExecutable(true, false);
+                    try {
+                        Runtime.getRuntime().exec(
+                            new String[]{"chmod", "755", dropbearFile.getAbsolutePath()}).waitFor();
+                    } catch (Exception ignored) {}
+
+                    // Install Static Git
+                    callback.onProgress("installing git...");
+                    File gitFile = new File(binDir, "git");
+                    copyAsset(context, "git", gitFile);
+                    gitFile.setReadable(true, false);
+                    gitFile.setExecutable(true, false);
+                    try {
+                        Runtime.getRuntime().exec(
+                            new String[]{"chmod", "755", gitFile.getAbsolutePath()}).waitFor();
+                    } catch (Exception ignored) {}
+
+                    // SSH and SCP wrapper scripts
+                    writeExecutableScript(new File(binDir, "ssh"),
+                        "#!/system/bin/sh\n" +
+                        "BIN=$(cd \"$(dirname \"$0\")\" && pwd)\n" +
+                        "exec \"$BIN/dropbearmulti\" dbclient \"$@\"\n"
+                    );
+                    writeExecutableScript(new File(binDir, "scp"),
+                        "#!/system/bin/sh\n" +
+                        "BIN=$(cd \"$(dirname \"$0\")\" && pwd)\n" +
+                        "exec \"$BIN/dropbearmulti\" scp \"$@\"\n"
+                    );
+                    writeExecutableScript(new File(binDir, "dropbearkey"),
+                        "#!/system/bin/sh\n" +
+                        "BIN=$(cd \"$(dirname \"$0\")\" && pwd)\n" +
+                        "exec \"$BIN/dropbearmulti\" dropbearkey \"$@\"\n"
+                    );
+
+                    File sshDir = new File(rootDir, ".ssh");
+                    sshDir.mkdirs();
 
                     // 2. Install Root Identity Wrappers
                     callback.onProgress("configuring tools...");

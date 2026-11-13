@@ -16,10 +16,16 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class CyberdeckActivity extends Activity {
@@ -877,6 +883,240 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
+    // QCyberdeck Package Repository Map
+    private static final Map<String, String> PKG_URLS = new HashMap<String, String>();
+    static {
+        PKG_URLS.put("curl", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/curl");
+        PKG_URLS.put("htop", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/htop");
+        PKG_URLS.put("vim", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/vim");
+        PKG_URLS.put("ncdu", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/ncdu");
+        PKG_URLS.put("strace", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/strace");
+        PKG_URLS.put("tcpdump", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/tcpdump");
+        PKG_URLS.put("socat", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/socat");
+        PKG_URLS.put("iperf", "https://raw.githubusercontent.com/Inknyto/arm-binaries/main/iperf");
+    }
+
+    private void handlePkgCommand(String cmd) {
+        String[] parts = cmd.split("\\s+");
+        if (parts.length < 2 || parts[1].equals("help")) {
+            printPkgHelp();
+            return;
+        }
+
+        String sub = parts[1].toLowerCase();
+        if (sub.equals("list") || sub.equals("search")) {
+            printPkgList();
+            return;
+        }
+
+        if (sub.equals("install") || sub.equals("add") || sub.equals("get")) {
+            if (parts.length < 3) {
+                String u = "\r\nUsage: pkg install <package-name>\r\nRun 'pkg list' to view available packages.\r\n\r\n";
+                mTerminalView.appendOutput(u.getBytes(), 0, u.length());
+                printPrompt();
+                return;
+            }
+            installPackageAsync(parts[2].toLowerCase());
+            return;
+        }
+
+        if (sub.equals("remove") || sub.equals("uninstall") || sub.equals("rm")) {
+            if (parts.length < 3) {
+                String u = "\r\nUsage: pkg remove <package-name>\r\n\r\n";
+                mTerminalView.appendOutput(u.getBytes(), 0, u.length());
+                printPrompt();
+                return;
+            }
+            removePackage(parts[2].toLowerCase());
+            return;
+        }
+
+        printPkgHelp();
+    }
+
+    private void printPkgHelp() {
+        String h =
+            "\r\n================================================\r\n" +
+            "  QCyberdeck Package Manager (pkg)\r\n" +
+            "================================================\r\n" +
+            "  Commands:\r\n" +
+            "    pkg list             List available & installed packages\r\n" +
+            "    pkg install <name>   Download & install static ARMv7 binary\r\n" +
+            "    pkg remove <name>    Remove an installed package\r\n" +
+            "    pkg help             Show this help screen\r\n\r\n" +
+            "  Try:  pkg list\r\n" +
+            "        pkg install curl\r\n" +
+            "        pkg install htop\r\n" +
+            "================================================\r\n\r\n";
+        byte[] b = h.getBytes();
+        mTerminalView.appendOutput(b, 0, b.length);
+        printPrompt();
+    }
+
+    private void printPkgList() {
+        File binDir = new File(getFilesDir(), "usr/bin");
+        StringBuilder sb = new StringBuilder("\r\n================================================\r\n");
+        sb.append("  QCyberdeck Package Index (Static ARMv7)\r\n");
+        sb.append("================================================\r\n");
+
+        String[][] core = {
+            {"ssh", "Dropbear SSH Client (dbclient)"},
+            {"scp", "Secure Copy file transfer"},
+            {"git", "Fast static Git version control"},
+            {"nano", "GNU Nano terminal text editor"}
+        };
+        for (String[] item : core) {
+            String name = item[0];
+            String desc = item[1];
+            File f = new File(binDir, name.equals("ssh") || name.equals("scp") ? "dropbearmulti" : name);
+            sb.append("  • ").append(String.format("%-10s", name))
+              .append(f.exists() ? "\u001B[1;32m[INSTALLED]\u001B[0m" : "\u001B[1;30m[NOT INSTALLED]\u001B[0m")
+              .append("  ").append(desc).append("\r\n");
+        }
+
+        String[][] online = {
+            {"curl", "cURL with HTTPS/TLS support (2.5 MB)"},
+            {"htop", "Interactive visual process monitor (294 KB)"},
+            {"vim", "Vim modal text editor (1.9 MB)"},
+            {"ncdu", "NCurses disk usage analyzer (248 KB)"},
+            {"tcpdump", "Network packet capture analyzer (1.1 MB)"},
+            {"socat", "Multipurpose socket relay (885 KB)"},
+            {"strace", "System call tracer (571 KB)"},
+            {"iperf", "Network bandwidth testing tool (278 KB)"}
+        };
+        for (String[] item : online) {
+            String name = item[0];
+            String desc = item[1];
+            File f = new File(binDir, name);
+            sb.append("  • ").append(String.format("%-10s", name))
+              .append(f.exists() ? "\u001B[1;32m[INSTALLED]\u001B[0m" : "\u001B[1;33m[AVAILABLE]\u001B[0m")
+              .append("  ").append(desc).append("\r\n");
+        }
+
+        sb.append("================================================\r\n");
+        sb.append("Install:  pkg install <name>\r\n");
+        sb.append("Remove:   pkg remove <name>\r\n\r\n");
+        byte[] b = sb.toString().getBytes();
+        mTerminalView.appendOutput(b, 0, b.length);
+        printPrompt();
+    }
+
+    private void removePackage(String pkgName) {
+        File binDir = new File(getFilesDir(), "usr/bin");
+        File target = new File(binDir, pkgName);
+        if (!target.exists()) {
+            String msg = "\r\n[-] Package '" + pkgName + "' is not installed.\r\n\r\n";
+            mTerminalView.appendOutput(msg.getBytes(), 0, msg.length());
+            printPrompt();
+            return;
+        }
+        if (pkgName.equals("busybox") || pkgName.equals("sh")) {
+            String msg = "\r\n\u001B[1;31m[-] Cannot remove core system tool: " + pkgName + "\u001B[0m\r\n\r\n";
+            mTerminalView.appendOutput(msg.getBytes(), 0, msg.length());
+            printPrompt();
+            return;
+        }
+        target.delete();
+        String msg = "\r\n\u001B[1;32m[+] Removed package '" + pkgName + "' from /usr/bin/.\u001B[0m\r\n\r\n";
+        mTerminalView.appendOutput(msg.getBytes(), 0, msg.length());
+        printPrompt();
+    }
+
+    private void installPackageAsync(final String pkgName) {
+        final String urlStr = PKG_URLS.get(pkgName);
+        if (urlStr == null) {
+            String err = "\r\n\u001B[1;31m[-] Unknown package: " + pkgName + "\u001B[0m\r\n" +
+                         "Run 'pkg list' to see all available packages.\r\n\r\n";
+            mTerminalView.appendOutput(err.getBytes(), 0, err.length());
+            printPrompt();
+            return;
+        }
+
+        final File binDir = new File(getFilesDir(), "usr/bin");
+        final File destFile = new File(binDir, pkgName);
+
+        String startMsg = "\r\n\u001B[1;36m[*] Querying repository for '" + pkgName + "' (static armv7l)...\u001B[0m\r\n";
+        mTerminalView.appendOutput(startMsg.getBytes(), 0, startMsg.length());
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    URL url = new URL(urlStr);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setConnectTimeout(15000);
+                    conn.setReadTimeout(30000);
+                    conn.setRequestProperty("User-Agent", "QCyberdeck-Pkg/1.0 (BlackBerry Q5)");
+                    conn.connect();
+
+                    int responseCode = conn.getResponseCode();
+                    if (responseCode != 200) {
+                        throw new Exception("HTTP server returned " + responseCode);
+                    }
+
+                    int totalSize = conn.getContentLength();
+                    InputStream in = conn.getInputStream();
+                    File tmpFile = new File(binDir, pkgName + ".tmp");
+                    FileOutputStream out = new FileOutputStream(tmpFile);
+
+                    byte[] buffer = new byte[8192];
+                    int read;
+                    int downloaded = 0;
+                    long lastUpdate = System.currentTimeMillis();
+
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                        downloaded += read;
+                        long now = System.currentTimeMillis();
+                        if (now - lastUpdate > 400) {
+                            lastUpdate = now;
+                            final int kb = downloaded / 1024;
+                            final int totalKb = totalSize > 0 ? totalSize / 1024 : 0;
+                            runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    String progress = "\r[*] Downloading: " + kb + (totalKb > 0 ? " / " + totalKb : "") + " KB";
+                                    mTerminalView.appendOutput(progress.getBytes(), 0, progress.length());
+                                }
+                            });
+                        }
+                    }
+
+                    out.flush();
+                    out.close();
+                    in.close();
+
+                    tmpFile.renameTo(destFile);
+                    destFile.setReadable(true, false);
+                    destFile.setExecutable(true, false);
+                    try {
+                        Runtime.getRuntime().exec(new String[]{"chmod", "755", destFile.getAbsolutePath()}).waitFor();
+                    } catch (Exception ignored) {}
+
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            String done = "\r\n\u001B[1;32m[+] Successfully installed " + pkgName + " to /usr/bin/" + pkgName + "!\u001B[0m\r\n" +
+                                          "[+] You can now run '" + pkgName + "' anytime from your terminal.\r\n\r\n";
+                            mTerminalView.appendOutput(done.getBytes(), 0, done.length());
+                            printPrompt();
+                        }
+                    });
+
+                } catch (final Exception e) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            String err = "\r\n\u001B[1;31m[-] Install failed: " + e.getMessage() + "\u001B[0m\r\n\r\n";
+                            mTerminalView.appendOutput(err.getBytes(), 0, err.length());
+                            printPrompt();
+                        }
+                    });
+                }
+            }
+        }).start();
+    }
+
     // Authentic Tony Monroe cowsay -f dragon for Linux (adapts to active CRT theme)
     private void printDragon(String msg) {
         StringBuilder sb = new StringBuilder("\r\n ");
@@ -1111,6 +1351,11 @@ public class CyberdeckActivity extends Activity {
             return;
         }
 
+        if (cmd.startsWith("pkg")) {
+            handlePkgCommand(cmd);
+            return;
+        }
+
         // --- Canonical Ubuntu Terminal Classics ---
 
         if (cmd.equals("sl") || cmd.equals("train")) {
@@ -1331,6 +1576,8 @@ public class CyberdeckActivity extends Activity {
                 "  Network         : ifconfig, netstat, ping, nc, wget\r\n" +
                 "  Archives        : tar -czvf, gzip\r\n" +
                 "  Tools           : grep, awk, sed, find, strings, hexdump\r\n" +
+                "  Packages        : pkg list, pkg install <name>, pkg remove <name>\r\n" +
+                "  Core Tooling    : ssh, scp, git, nano, busybox\r\n" +
                 "  All 350+        : busybox --help\r\n" +
                 "================================================\r\n\r\n";
             byte[] b = help.getBytes();
