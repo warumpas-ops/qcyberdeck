@@ -159,7 +159,7 @@ public class CyberdeckActivity extends Activity {
         mInputLine.setLength(0);
         mTerminalView.clearScreen();
         if (reinstall) {
-            File marker = new File(getFilesDir(), ".installed_v10");
+            File marker = new File(getFilesDir(), ".installed_v13");
             marker.delete();
             checkAndStart();
             Toast.makeText(this, "Reinstalling...", Toast.LENGTH_SHORT).show();
@@ -1564,23 +1564,28 @@ public class CyberdeckActivity extends Activity {
         if (cmd.equals("help")) {
             String help =
                 "\r\n================================================\r\n" +
-                "  QCyberdeck Canonical Ubuntu Extensions\r\n" +
+                "  QCyberdeck v3.8.0 - Quick Reference\r\n" +
                 "================================================\r\n" +
-                "  Ubuntu Classics : sl, asciiquarium, cmatrix, aafire, pipes, nyancat, cbonsai\r\n" +
-                "  ASCII Animals   : dragon <msg>, cowsay <msg>, cowthink <msg>, fortune | cowsay\r\n" +
-                "  System & Info   : neofetch, battery, sysinfo, uname -a, uptime, whoami\r\n" +
-                "  ASCII Fun       : fortune, cowsay <msg>, cowthink <msg>, skull, deck, clock\r\n" +
-                "  Telemetry       : battery, sysinfo, uname -a, uptime\r\n" +
-                "  Identity        : whoami, id\r\n" +
-                "  Files           : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
-                "  Network         : ifconfig, netstat, ping, nc, wget\r\n" +
-                "  Archives        : tar -czvf, gzip\r\n" +
-                "  Tools           : grep, awk, sed, find, strings, hexdump\r\n" +
-                "  Packages        : pkg list, pkg install <name>, pkg remove <name>\r\n" +
-                "  Core Tooling    : ssh, scp, git, nano, busybox\r\n" +
-                "  All 350+        : busybox --help\r\n" +
+                "  Handbook    : tutorial  (or  manual)\r\n" +
+                "  Packages    : pkg list, pkg install <name>, pkg remove <name>\r\n" +
+                "  SSH / Git   : ssh, scp, dropbearkey, git, nano\r\n" +
+                "  Animations  : dragon, cbonsai, sl, fish, matrix, aafire, pipes, nyancat\r\n" +
+                "  System Info : neofetch, battery, sysinfo, uname -a, uptime\r\n" +
+                "  Identity    : whoami, id\r\n" +
+                "  Files       : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
+                "  Network     : ifconfig, netstat, ping, nc, wget, curl\r\n" +
+                "  Archives    : tar -czvf, gzip, bzip2\r\n" +
+                "  Tools       : grep, awk, sed, find, strings, hexdump\r\n" +
+                "  All 350+    : busybox --help\r\n" +
                 "================================================\r\n\r\n";
             byte[] b = help.getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
+            return;
+        }
+
+        if (cmd.equals("tutorial") || cmd.equals("manual")) {
+            byte[] b = Installer.TUTORIAL_TEXT.getBytes();
             mTerminalView.appendOutput(b, 0, b.length);
             printPrompt();
             return;

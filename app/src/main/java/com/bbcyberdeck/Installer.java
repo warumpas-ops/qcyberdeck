@@ -9,8 +9,120 @@ import java.io.InputStream;
 
 public class Installer {
     private static final String TAG = "Installer";
-    // Version v12: Added pre-installed SSH, Git, Nano, and pkg package manager
-    private static final String VERSION_MARKER = ".installed_v12";
+    // Version v13: Added built-in TUTORIAL.txt, MANUAL.txt, and 'tutorial'/'manual' commands
+    private static final String VERSION_MARKER = ".installed_v13";
+
+    public static final String TUTORIAL_TEXT =
+        "================================================================================\r\n" +
+        "             Q C Y B E R D E C K   H A N D B O O K   &   M A N U A L\r\n" +
+        "================================================================================\r\n" +
+        "  Hardware : BlackBerry Q5 / Q10 / Classic / Passport (720x720 Square LCD)\r\n" +
+        "  Platform : BlackBerry 10 (Android 4.3 runtime + QNX Neutrino microkernel)\r\n" +
+        "  Identity : root@q5 [UID 0] - Full Offline Linux Environment\r\n" +
+        "================================================================================\r\n\r\n" +
+        "Welcome to QCyberdeck! This device is a standalone physical-keyboard cyberdeck.\r\n" +
+        "Below is the complete guide to everything this terminal is capable of.\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "1. KEYBOARD & INPUT SHORTCUTS\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "  'SYM' Key         : Opens native BlackBerry on-screen symbol picker for all\r\n" +
+        "                      code punctuation: |  \\  ~  ^  {  }  [  ]  <  >  `  _\r\n" +
+        "  'Alt' + Key       : Types numbers (1-9, 0) and symbols printed on keyboard.\r\n" +
+        "  'Back' Key        : Cancels currently running command or clears input line.\r\n" +
+        "  'Enter'           : Submits and executes command line.\r\n" +
+        "  'Trackpad / D-Pad': Up / Down recalls command history.\r\n" +
+        "  'Tab'             : Inserts tab indentation.\r\n" +
+        "  Any Key           : Instantly stops any playing ASCII animation or demo.\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "2. TOUCHSCREEN GESTURES\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "  Double-Tap Screen : Cycles vintage CRT phosphor themes:\r\n" +
+        "                      - [Green] Matrix P1 Phosphor (#00FF66)\r\n" +
+        "                      - [Amber] Vintage Amber CRT (#FFB000)\r\n" +
+        "                      - [Blue]  Cyber Cyan (#00D2FF)\r\n" +
+        "                      - [White] Clean Terminal White (#E6EDF3)\r\n" +
+        "  Drag Up / Down    : Smoothly scroll through 2,000 lines of scrollback buffer.\r\n" +
+        "                      Stops cleanly at line 1 (no empty black void).\r\n" +
+        "  Single Tap Screen : Snaps view immediately back down to live prompt.\r\n" +
+        "  Long-Press Screen : Emergency restart of the terminal session.\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "3. BUILT-IN PACKAGE MANAGER ('pkg')\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "Connect your BlackBerry to Wi-Fi to install additional static ARMv7 tools:\r\n\r\n" +
+        "  pkg list             - View installed and available repository packages\r\n" +
+        "  pkg install <name>   - Download and install tool to /system/usr/bin/\r\n" +
+        "  pkg remove <name>    - Uninstall an installed package\r\n\r\n" +
+        "Available tools in repository:\r\n" +
+        "  - curl     : Full cURL with HTTPS/TLS network transfer support\r\n" +
+        "  - htop     : Interactive visual process monitor\r\n" +
+        "  - vim      : Vi IMproved modal text editor\r\n" +
+        "  - ncdu     : Visual NCurses disk usage analyzer\r\n" +
+        "  - tcpdump  : Network packet capture and protocol analyzer\r\n" +
+        "  - socat    : Multipurpose bidirectional socket relay\r\n" +
+        "  - strace   : System call tracer\r\n" +
+        "  - iperf    : Network bandwidth throughput testing tool\r\n\r\n" +
+        "Example:\r\n" +
+        "  pkg install curl\r\n" +
+        "  pkg install htop\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "4. REMOTE ACCESS & CODE CONTROL (PRE-INSTALLED)\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "  ssh user@host      : Dropbear SSH client (dbclient). Remote into Linux\r\n" +
+        "                       servers, VPS, or Raspberry Pis from physical keys!\r\n" +
+        "                       Example: ssh pi@192.168.1.50\r\n" +
+        "  scp file user@host : Secure copy files to/from remote machines.\r\n" +
+        "  dropbearkey        : Generate local SSH keypairs in ~/.ssh/\r\n" +
+        "  git                : Full static ARMv7 Git suite!\r\n" +
+        "                       - git clone https://github.com/user/repo.git\r\n" +
+        "                       - git status\r\n" +
+        "                       - git add .\r\n" +
+        "                       - git commit -m \"my commit\"\r\n" +
+        "                       - git push origin main\r\n" +
+        "  nano <filename>    : User-friendly terminal text editor for BlackBerry LCD.\r\n" +
+        "  vi <filename>      : Classic vi modal editor.\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "5. CANONICAL LINUX ASCII ART & ANIMATIONS\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "Tap ANY key on the physical keyboard to exit an animation at any time.\r\n\r\n" +
+        "  dragon <message>   : Giant fire-breathing dragon speaking your custom message!\r\n" +
+        "                       Color adapts dynamically to your active CRT phosphor.\r\n" +
+        "  cbonsai / bonsai   : Live animated growing bonsai tree with custom branches.\r\n" +
+        "  neofetch / fastfetch: Cyberdeck hardware spec card & ANSI architecture art.\r\n" +
+        "  sl / train         : Steam locomotive rolling across your screen.\r\n" +
+        "  asciiquarium / fish: Underwater aquarium with fish, castle & swimming ducks.\r\n" +
+        "  cmatrix / matrix   : Falling digital Matrix rain.\r\n" +
+        "  aafire / fire      : Heat diffusion ASCII fire simulation.\r\n" +
+        "  pipes              : Multi-color animated pipe maze.\r\n" +
+        "  nyancat            : Animated Nyan Cat with rainbow star trail.\r\n" +
+        "  fortune | cowsay   : Talking cow speaking witty Unix fortune quotes.\r\n" +
+        "  skull              : Cyberpunk root skull graphic.\r\n" +
+        "  deck               : ASCII BlackBerry cyberdeck handheld rendering.\r\n" +
+        "  hack               : Simulated cyberdeck network infiltration sequence.\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "6. SYSTEM TELEMETRY & HARDWARE GAUGES\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "  battery   : Real-time battery %, health, temperature (C & F), voltage,\r\n" +
+        "              and charging status via direct BatteryManager intent.\r\n" +
+        "  sysinfo   : CPU clock speed, hardware architecture, and kernel status.\r\n" +
+        "  df -h     : Disk space across internal storage and Micro-SD card (/sdcard).\r\n" +
+        "  free      : Available and used RAM (2GB LPDDR2).\r\n" +
+        "  top       : Live CPU usage and task list.\r\n" +
+        "  uname -a  : System kernel and architecture information.\r\n" +
+        "  ifconfig  : Active Wi-Fi and mobile data IP addresses.\r\n" +
+        "  netstat   : Active TCP/UDP listening ports and network connections.\r\n" +
+        "  ping      : Test internet connectivity (e.g. ping 8.8.8.8).\r\n\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "7. FILESYSTEM & STORAGE\r\n" +
+        "--------------------------------------------------------------------------------\r\n" +
+        "  /sdcard   : Your Micro-SD card and user storage. Mounts cleanly.\r\n" +
+        "  ~/ (root) : Application private home directory (/data/data/com.bbcyberdeck/files/root)\r\n" +
+        "  tree      : Visual folder directory hierarchy tree.\r\n" +
+        "  ls -la    : List all files with sizes, dates, and permissions.\r\n" +
+        "  tar / gzip: Create or extract archives (.tar.gz).\r\n\r\n" +
+        "================================================================================\r\n" +
+        "Type 'help' for a quick cheat sheet anytime.\r\n" +
+        "Type 'tutorial' or 'manual' to re-read this handbook.\r\n" +
+        "================================================================================\r\n\r\n";
 
     public interface InstallCallback {
         void onProgress(String status);
@@ -262,16 +374,40 @@ public class Installer {
                         "echo \"================================================\"\n" +
                         "echo \"  QCyberdeck Commands Reference\"\n" +
                         "echo \"================================================\"\n" +
-                        "echo \"  ASCII    : fetch, cowsay <msg>, skull, deck\"\n" +
-                        "echo \"  Visuals  : matrix, hack, clock\"\n" +
-                        "echo \"  Hardware : sysinfo, uname -a, uptime, free, df -h\"\n" +
+                        "echo \"  Handbook : tutorial, manual, cat TUTORIAL.txt\"\n" +
+                        "echo \"  Packages : pkg list, pkg install <name>, pkg remove <name>\"\n" +
+                        "echo \"  SSH/Git  : ssh, scp, dropbearkey, git, nano\"\n" +
+                        "echo \"  Visuals  : dragon, cbonsai, sl, fish, matrix, aafire, pipes, nyancat\"\n" +
+                        "echo \"  Hardware : neofetch, battery, sysinfo, uptime, free, df -h\"\n" +
                         "echo \"  Identity : whoami, id\"\n" +
-                        "echo \"  Files    : ls -la, pwd, cd, mkdir, rm, cp, mv, vi\"\n" +
+                        "echo \"  Files    : ls -la, pwd, cd, mkdir, rm, cp, mv, vi, tree\"\n" +
                         "echo \"  Archives : tar -czvf, gzip, bzip2\"\n" +
-                        "echo \"  Network  : ifconfig, netstat, ping, nc, wget\"\n" +
+                        "echo \"  Network  : ifconfig, netstat, ping, nc, wget, curl\"\n" +
                         "echo \"  Tools    : grep, awk, sed, find, strings, hexdump\"\n" +
                         "echo \"  All 350+ : busybox --help\"\n" +
                         "echo \"================================================\"\n"
+                    );
+
+                    // Write Handbook & Tutorial files
+                    writeTextFile(new File(rootDir, "TUTORIAL.txt"), TUTORIAL_TEXT);
+                    writeTextFile(new File(rootDir, "MANUAL.txt"), TUTORIAL_TEXT);
+                    try {
+                        File sdcardTutorial = new File("/sdcard/TUTORIAL.txt");
+                        writeTextFile(sdcardTutorial, TUTORIAL_TEXT);
+                    } catch (Exception ignored) {}
+
+                    // tutorial & manual executable commands
+                    writeExecutableScript(new File(binDir, "tutorial"),
+                        "#!/system/bin/sh\n" +
+                        "if [ -f \"" + rootDir.getAbsolutePath() + "/TUTORIAL.txt\" ]; then\n" +
+                        "    cat \"" + rootDir.getAbsolutePath() + "/TUTORIAL.txt\"\n" +
+                        "elif [ -f \"/sdcard/TUTORIAL.txt\" ]; then\n" +
+                        "    cat \"/sdcard/TUTORIAL.txt\"\n" +
+                        "fi\n"
+                    );
+                    writeExecutableScript(new File(binDir, "manual"),
+                        "#!/system/bin/sh\n" +
+                        "exec \"" + binDir.getAbsolutePath() + "/tutorial\"\n"
                     );
 
                     // 3. Set up symlinks for all other BusyBox tools
@@ -319,6 +455,17 @@ public class Installer {
                 }
             }
         }).start();
+    }
+
+    private static void writeTextFile(File file, String content) {
+        try {
+            if (file.exists()) file.delete();
+            FileOutputStream fos = new FileOutputStream(file);
+            fos.write(content.getBytes("UTF-8"));
+            fos.close();
+            file.setReadable(true, false);
+            file.setWritable(true, false);
+        } catch (Exception ignored) {}
     }
 
     private static void writeExecutableScript(File file, String content) {
