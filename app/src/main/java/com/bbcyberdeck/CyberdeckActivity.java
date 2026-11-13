@@ -165,35 +165,161 @@ public class CyberdeckActivity extends Activity {
         return sb.toString();
     }
 
+    // --- Authentic Ubuntu Unix Classics: sl & asciiquarium ---
+
+    // Authentic Toyoda Masashi D51 Locomotive (from Ubuntu 'sl' package)
+    private static final String[] SL_D51_BASE = {
+        "      ====        ________                ___________ ",
+        "  _D _|  |_______/        \\__I_I_____===__|_________| ",
+        "   |(_)---  |   H\\________/ |   |        =|___ ___|   ",
+        "   /     |  |   H  |  |     |   |         ||_| |_||   ",
+        "  |      |  |   H  |__--------------------| [___] |   ",
+        "  | ________|___H__/__|_____/[][]~\\_______|       |   ",
+        "  |/ |   |-----------I_____I [][] []  D   |=======|__ "
+    };
+
+    private static final String[][] SL_D51_WHEELS = {
+        {
+            "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+            " |/-=|___|=    ||    ||    ||    |_____/~\\___/        ",
+            "  \\_/      \\O=====O=====O=====O_/      \\_/            "
+        },
+        {
+            "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+            " |/-=|___|=O=====O=====O=====O   |_____/~\\___/        ",
+            "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            "
+        },
+        {
+            "__/ =| o |=-O=====O=====O=====O \\ ____Y___________|__ ",
+            " |/-=|___|=    ||    ||    ||    |_____/~\\___/        ",
+            "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            "
+        },
+        {
+            "__/ =| o |=-~O=====O=====O=====O\\ ____Y___________|__ ",
+            " |/-=|___|=    ||    ||    ||    |_____/~\\___/        ",
+            "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            "
+        },
+        {
+            "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+            " |/-=|___|=   O=====O=====O=====O|_____/~\\___/        ",
+            "  \\_/      \\__/  \\__/  \\__/  \\__/      \\_/            "
+        },
+        {
+            "__/ =| o |=-~~\\  /~~\\  /~~\\  /~~\\ ____Y___________|__ ",
+            " |/-=|___|=    ||    ||    ||    |_____/~\\___/        ",
+            "  \\_/      \\_O=====O=====O=====O/      \\_/            "
+        }
+    };
+
+    private static final String[] SL_D51_COAL = {
+        "                              ",
+        "                              ",
+        "    _________________         ",
+        "   _|                \\_____A  ",
+        " =|                        |  ",
+        " -|                        |  ",
+        "__|________________________|_ ",
+        "|__________________________|_ ",
+        "   |_D__D__D_|  |_D__D__D_|   ",
+        "    \\_/   \\_/    \\_/   \\_/    "
+    };
+
+    private static class SlSmoke {
+        int r, c, step;
+        SlSmoke(int r, int c) { this.r = r; this.c = c; this.step = 0; }
+    }
+
     private void playTrainAnimation() {
         mIsAnimating = true;
         new Thread(new Runnable() {
             @Override
             public void run() {
-                String[] smoke = new String[]{"(@@) (  )  ", "  (@@@) () ", " ( ) (@@)  "};
-                for (int step = 0; step <= 36 && mIsAnimating; step += 2) {
-                    StringBuilder frame = new StringBuilder();
-                    frame.append("\u001B[2J\u001B[H\r\n\r\n\r\n\r\n");
+                final int COLS = 54;
+                final int ROWS = 22;
+                final int Y_START = 8;
+                final String[] smokeText = {"(@@@)", "(@@@@)", "(@@)", "(@)", "@@", "@", "."};
+                final List<SlSmoke> smokes = new ArrayList<SlSmoke>();
 
-                    String pad = getPadding(step);
-                    String s = smoke[(step / 2) % 3];
+                // Train runs from right to left across the screen (COLS down to -85)
+                for (int x = COLS; x >= -85 && mIsAnimating; x--) {
+                    char[][] grid = new char[ROWS][COLS];
+                    for (int r = 0; r < ROWS; r++) {
+                        for (int c = 0; c < COLS; c++) grid[r][c] = ' ';
+                    }
 
-                    frame.append(pad).append("      ").append(s).append("\r\n");
-                    frame.append(pad).append("    ==== ____\r\n");
-                    frame.append(pad).append("  __I__n [___]]\r\n");
-                    frame.append(pad).append("-(_________)|  \r\n");
-                    frame.append(pad).append("  (O)---(O)    \r\n");
-                    frame.append("====================================================\r\n");
+                    // 1. Update and draw smoke particles
+                    if (x % 3 == 0) {
+                        smokes.add(new SlSmoke(Y_START - 1, x + 7)); // Smokestack
+                    }
+                    for (int s = smokes.size() - 1; s >= 0; s--) {
+                        SlSmoke sp = smokes.get(s);
+                        sp.step++;
+                        if (sp.step % 2 == 0) sp.r--; // Rise
+                        sp.c += 2; // Drift rightwards
+                        if (sp.r < 0 || sp.c >= COLS || sp.step / 3 >= smokeText.length) {
+                            smokes.remove(s);
+                        } else {
+                            String pStr = smokeText[sp.step / 3];
+                            for (int k = 0; k < pStr.length(); k++) {
+                                int sc = sp.c + k;
+                                if (sc >= 0 && sc < COLS && sp.r >= 0 && sp.r < ROWS) {
+                                    grid[sp.r][sc] = pStr.charAt(k);
+                                }
+                            }
+                        }
+                    }
 
-                    final byte[] b = frame.toString().getBytes();
+                    // 2. Draw D51 locomotive and 6-phase rotating wheels
+                    int wheelPhase = Math.abs(x) % 6;
+                    String[] wheels = SL_D51_WHEELS[wheelPhase];
+                    for (int r = 0; r < 7; r++) {
+                        String line = SL_D51_BASE[r];
+                        for (int c = 0; c < line.length(); c++) {
+                            int tc = x + c;
+                            if (tc >= 0 && tc < COLS && (Y_START + r) < ROWS) {
+                                grid[Y_START + r][tc] = line.charAt(c);
+                            }
+                        }
+                    }
+                    for (int r = 0; r < 3; r++) {
+                        String line = wheels[r];
+                        for (int c = 0; c < line.length(); c++) {
+                            int tc = x + c;
+                            if (tc >= 0 && tc < COLS && (Y_START + 7 + r) < ROWS) {
+                                grid[Y_START + 7 + r][tc] = line.charAt(c);
+                            }
+                        }
+                    }
+
+                    // 3. Draw Coal Tender attached behind (offset +53)
+                    for (int r = 0; r < 10; r++) {
+                        String line = SL_D51_COAL[r];
+                        for (int c = 0; c < line.length(); c++) {
+                            int tc = x + 53 + c;
+                            if (tc >= 0 && tc < COLS && (Y_START + r) < ROWS) {
+                                grid[Y_START + r][tc] = line.charAt(c);
+                            }
+                        }
+                    }
+
+                    // Convert grid to ANSI frame
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("\u001B[2J\u001B[H"); // Reset cursor to (0,0)
+                    for (int r = 0; r < ROWS; r++) {
+                        sb.append(new String(grid[r])).append("\r\n");
+                    }
+
+                    final byte[] b = sb.toString().getBytes();
                     runOnUiThread(new Runnable() {
                         @Override
                         public void run() {
                             mTerminalView.appendOutput(b, 0, b.length);
                         }
                     });
-                    try { Thread.sleep(75); } catch (Exception ignored) {}
+
+                    try { Thread.sleep(40); } catch (Exception ignored) {}
                 }
+
                 mIsAnimating = false;
                 runOnUiThread(new Runnable() {
                     @Override
@@ -206,47 +332,159 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
+    // Authentic Kirk Baucom / Joan Stark ASCIQUARIUM (from Ubuntu 'asciiquarium' package)
     private void playAquariumAnimation() {
         mIsAnimating = true;
         new Thread(new Runnable() {
             @Override
             public void run() {
-                for (int f = 0; f < 35 && mIsAnimating; f++) {
-                    int fish1X = (f * 2) % 36;
-                    int fish2X = 36 - ((f * 2) % 36);
+                final int COLS = 54;
+                final int ROWS = 22;
 
-                    StringBuilder sb = new StringBuilder();
-                    sb.append("\u001B[2J\u001B[H\r\n");
-                    sb.append("\u001B[1;36m~~~~~~~~~~~~~~~ ASCII AQUARIUM ~~~~~~~~~~~~~~~~\u001B[0m\r\n\r\n");
+                final String[] castle = {
+                    "        T~~   ",
+                    "        |     ",
+                    "       /^\\    ",
+                    "      /   \\   ",
+                    " _ _ / _ _ \\[_]",
+                    "|_=__-_ =_|_=-_",
+                    " | _- =  |=_ = ",
+                    " |= -[]  |_-=_ ",
+                    " |_______|_____"
+                };
 
-                    // Row 1 (bubbles)
-                    sb.append(getPadding((f * 3) % 40)).append(".\r\n");
+                final String[] duck = {
+                    ">(o)___",
+                    "  (_===/"
+                };
 
-                    // Row 2 (Fish 1 swimming right in yellow/gold)
-                    sb.append(getPadding(fish1X)).append("\u001B[1;33m><(((*>\u001B[0m\r\n");
+                final String[] fish1Right = {
+                    "  \\       ",
+                    "   \\  __  ",
+                    "----\\/ o\\ ",
+                    "----/\\__/ ",
+                    "   /      ",
+                    "  /       "
+                };
 
-                    // Row 3 (bubbles)
-                    sb.append(getPadding((f * 5 + 10) % 40)).append("o\r\n");
+                final String[] seaweedA = {
+                    " (   ) ",
+                    "  ) (  ",
+                    " (   ) ",
+                    "  ) (  "
+                };
 
-                    // Row 4 (Fish 2 swimming left in magenta)
-                    sb.append(getPadding(fish2X)).append("\u001B[1;35m<*)))><\u001B[0m\r\n");
+                final String[] seaweedB = {
+                    "  ) (  ",
+                    " (   ) ",
+                    "  ) (  ",
+                    " (   ) "
+                };
 
-                    // Row 5 (small fish in cyan)
-                    sb.append(getPadding((fish1X + 16) % 40)).append("\u001B[1;36m><>\u001B[0m\r\n");
-
-                    // Row 6 (bubbles)
-                    sb.append(getPadding((f * 7 + 22) % 40)).append("O\r\n\r\n");
-
-                    // Swaying seaweed in green
-                    sb.append("\u001B[1;32m");
-                    if (f % 2 == 0) {
-                        sb.append("  ( ( (   ) ) )   ( ( (   ) ) )   ( ( (   ) ) ) \r\n");
-                        sb.append("   ) ) ) ( ( (     ) ) ) ( ( (     ) ) ) ( ( (  \r\n");
-                    } else {
-                        sb.append("   ) ) ) ( ( (     ) ) ) ( ( (     ) ) ) ( ( (  \r\n");
-                        sb.append("  ( ( (   ) ) )   ( ( (   ) ) )   ( ( (   ) ) ) \r\n");
+                for (int frame = 0; frame < 200 && mIsAnimating; frame++) {
+                    char[][] grid = new char[ROWS][COLS];
+                    for (int r = 0; r < ROWS; r++) {
+                        for (int c = 0; c < COLS; c++) grid[r][c] = ' ';
                     }
-                    sb.append("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001B[0m\r\n");
+
+                    // 1. Waterline
+                    for (int c = 0; c < COLS; c++) grid[0][c] = '~';
+                    String waves = "^^^^    ^^^    ^^^^    ^^^    ^^^^    ^^^    ^^^^    ^";
+                    for (int c = 0; c < Math.min(COLS, waves.length()); c++) grid[1][c] = waves.charAt(c);
+
+                    // 2. Surface duck swimming left-to-right
+                    int duckX = ((frame * 2) % (COLS + 15)) - 8;
+                    for (int r = 0; r < 2; r++) {
+                        String dl = duck[r];
+                        for (int c = 0; c < dl.length(); c++) {
+                            int tc = duckX + c;
+                            if (tc >= 0 && tc < COLS) grid[r][tc] = dl.charAt(c);
+                        }
+                    }
+
+                    // 3. Joan Stark Fish 1 (long tail) swimming right at row 4
+                    int f1X = ((frame * 2) % (COLS + 25)) - 12;
+                    for (int r = 0; r < fish1Right.length; r++) {
+                        String fl = fish1Right[r];
+                        for (int c = 0; c < fl.length(); c++) {
+                            char ch = fl.charAt(c);
+                            if (ch != ' ') {
+                                int tc = f1X + c;
+                                if (tc >= 0 && tc < COLS && (4 + r) < ROWS) grid[4 + r][tc] = ch;
+                            }
+                        }
+                    }
+
+                    // 4. Fish 2 swimming left at row 11: <º)))><
+                    String f2 = "<º)))><";
+                    int f2X = COLS - ((frame * 2) % (COLS + 15));
+                    for (int c = 0; c < f2.length(); c++) {
+                        int tc = f2X + c;
+                        if (tc >= 0 && tc < COLS) grid[11][tc] = f2.charAt(c);
+                    }
+
+                    // 5. Fish 3 swimming right at row 14: ><(((º>
+                    String f3 = "><(((º>";
+                    int f3X = ((frame * 3 + 12) % (COLS + 15)) - 8;
+                    for (int c = 0; c < f3.length(); c++) {
+                        int tc = f3X + c;
+                        if (tc >= 0 && tc < COLS) grid[14][tc] = f3.charAt(c);
+                    }
+
+                    // 6. Fish 4 guppy: ><>
+                    String f4 = "><>";
+                    int f4X = ((frame * 2 + 30) % (COLS + 10)) - 4;
+                    for (int c = 0; c < f4.length(); c++) {
+                        int tc = f4X + c;
+                        if (tc >= 0 && tc < COLS) grid[16][tc] = f4.charAt(c);
+                    }
+
+                    // 7. Bubbles rising from bottom
+                    int[] bubbleCols = {8, 22, 34};
+                    char[] bTypes = {'o', 'O', '.'};
+                    for (int bIdx = 0; bIdx < bubbleCols.length; bIdx++) {
+                        int bc = bubbleCols[bIdx];
+                        int bStep = (frame * 2 + bIdx * 6) % 17;
+                        int br = 18 - bStep;
+                        if (br >= 2 && br < ROWS) {
+                            grid[br][bc] = bTypes[bIdx % bTypes.length];
+                        }
+                    }
+
+                    // 8. Atlantis Castle at bottom-right (columns 38 to 52, rows 13 to 21)
+                    for (int r = 0; r < castle.length; r++) {
+                        String cl = castle[r];
+                        for (int c = 0; c < cl.length(); c++) {
+                            char ch = cl.charAt(c);
+                            if (ch != ' ') {
+                                int tc = 38 + c;
+                                if (tc >= 0 && tc < COLS && (13 + r) < ROWS) grid[13 + r][tc] = ch;
+                            }
+                        }
+                    }
+
+                    // 9. Swaying seaweed at bottom (columns 2, 14, 26, rows 18 to 21)
+                    String[] sw = ((frame / 4) % 2 == 0) ? seaweedA : seaweedB;
+                    int[] swCols = {2, 14, 26};
+                    for (int sc : swCols) {
+                        for (int r = 0; r < sw.length; r++) {
+                            String sl = sw[r];
+                            for (int c = 0; c < sl.length(); c++) {
+                                char ch = sl.charAt(c);
+                                if (ch != ' ') {
+                                    int tc = sc + c;
+                                    if (tc >= 0 && tc < COLS && (18 + r) < ROWS) grid[18 + r][tc] = ch;
+                                }
+                            }
+                        }
+                    }
+
+                    // Convert frame to ANSI screen
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("\u001B[2J\u001B[H"); // Home cursor
+                    for (int r = 0; r < ROWS; r++) {
+                        sb.append(new String(grid[r])).append("\r\n");
+                    }
 
                     final byte[] b = sb.toString().getBytes();
                     runOnUiThread(new Runnable() {
@@ -255,8 +493,10 @@ public class CyberdeckActivity extends Activity {
                             mTerminalView.appendOutput(b, 0, b.length);
                         }
                     });
-                    try { Thread.sleep(90); } catch (Exception ignored) {}
+
+                    try { Thread.sleep(70); } catch (Exception ignored) {}
                 }
+
                 mIsAnimating = false;
                 runOnUiThread(new Runnable() {
                     @Override
@@ -298,7 +538,7 @@ public class CyberdeckActivity extends Activity {
             return;
         }
 
-        if (cmd.equals("fish") || cmd.equals("aqua") || cmd.equals("aquarium")) {
+        if (cmd.equals("fish") || cmd.equals("aqua") || cmd.equals("aquarium") || cmd.equals("asciiquarium")) {
             playAquariumAnimation();
             return;
         }
@@ -422,7 +662,7 @@ public class CyberdeckActivity extends Activity {
                 "\r\n================================================\r\n" +
                 "  QCyberdeck Commands Reference\r\n" +
                 "================================================\r\n" +
-                "  Animated : sl (train), fish (asciiquarium)\r\n" +
+                "  Animated : sl (authentic Ubuntu train), asciiquarium (fish)\r\n" +
                 "  ASCII    : skull, cowsay <msg>, deck, clock, matrix\r\n" +
                 "  Telemetry: battery, sysinfo, uname -a, uptime\r\n" +
                 "  Identity : whoami, id\r\n" +
