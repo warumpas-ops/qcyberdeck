@@ -1230,11 +1230,18 @@ public class CyberdeckActivity extends Activity {
                 return true;
             }
 
-            // Physical SYM or $ key toggles sticky CTRL mode
-            if (keyCode == KeyEvent.KEYCODE_SYM || keyCode == KeyEvent.KEYCODE_POUND) {
-                mStickyCtrl = !mStickyCtrl;
-                Toast.makeText(this, mStickyCtrl ? "[CTRL] Mode: ON" : "[CTRL] Mode: OFF", Toast.LENGTH_SHORT).show();
-                return true;
+            // Quick terminal symbol shortcuts for physical Q5 keyboard:
+            // Alt + Space = Pipe '|' (so you don't even have to open the sym panel)
+            // Alt + Enter = Backslash '\'
+            if (event.isAltPressed()) {
+                if (keyCode == KeyEvent.KEYCODE_SPACE) {
+                    onCharInput('|');
+                    return true;
+                }
+                if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                    onCharInput('\\');
+                    return true;
+                }
             }
 
             if (keyCode == KeyEvent.KEYCODE_ENTER) {
