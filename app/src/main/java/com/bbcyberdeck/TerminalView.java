@@ -6,8 +6,12 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Typeface;
 import android.util.AttributeSet;
+import android.text.InputType;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.BaseInputConnection;
+import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputConnection;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -67,7 +71,52 @@ public class TerminalView extends View {
         init();
     }
 
+    public interface InputConnectionListener {
+        void onTextInput(String text);
+        void onBackspace();
+    }
+
+    private InputConnectionListener mInputListener;
+
+    public void setInputConnectionListener(InputConnectionListener listener) {
+        mInputListener = listener;
+    }
+
+    @Override
+    public boolean onCheckIsTextEditor() {
+        return true;
+    }
+
+    @Override
+    public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
+        outAttrs.inputType = InputType.TYPE_NULL;
+        outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_FULLSCREEN;
+        return new BaseInputConnection(this, false) {
+            @Override
+            public boolean commitText(CharSequence text, int newCursorPosition) {
+                if (text != null && mInputListener != null) {
+                    mInputListener.onTextInput(text.toString());
+                    return true;
+                }
+                return super.commitText(text, newCursorPosition);
+            }
+
+            @Override
+            public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+                if (mInputListener != null) {
+                    mInputListener.onBackspace();
+                    return true;
+                }
+                return super.deleteSurroundingText(beforeLength, afterLength);
+            }
+        };
+    }
+
     private void init() {
+        setFocusable(true);
+        setFocusableInTouchMode(true);
+        requestFocus();
+
         mTextPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         mTextPaint.setTypeface(Typeface.MONOSPACE);
         mTextPaint.setTextSize(22f); // Optimized for Q5 720x720 display

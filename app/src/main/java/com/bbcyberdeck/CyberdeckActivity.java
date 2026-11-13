@@ -41,9 +41,8 @@ public class CyberdeckActivity extends Activity {
     // Animation running flag
     private volatile boolean mIsAnimating = false;
 
-    // BlackBerry Q5 Hardware Ctrl modifiers
+    // BlackBerry Q5 Hardware Ctrl modifier (Volume Down = instant Ctrl+C)
     private volatile boolean mVolumeDownHeld = false;
-    private volatile boolean mStickyCtrl = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,6 +60,33 @@ public class CyberdeckActivity extends Activity {
         mTerminalView = (TerminalView) findViewById(R.id.terminal_view);
         mLayoutInstalling = (LinearLayout) findViewById(R.id.layout_installing);
         mTvInstallStatus = (TextView) findViewById(R.id.tv_install_status);
+
+        // Wire InputConnection → terminal line editor so BB10 IME delivers text directly
+        mTerminalView.setInputConnectionListener(new TerminalView.InputConnectionListener() {
+            @Override
+            public void onTextInput(String text) {
+                for (int i = 0; i < text.length(); i++) {
+                    char c = text.charAt(i);
+                    if (c == '\n' || c == '\r') {
+                        onEnter();
+                    } else if (c == 0x08 || c == 0x7f) {
+                        onBackspace();
+                    } else if (c >= 1 && c <= 26) {
+                        // Ctrl code from hardware keyboard or IME
+                        if (c == 3) onCtrlC();
+                        else if (c == 12) mTerminalView.clearScreen();
+                        else if (c == 21) replaceInputLine("");
+                        else if (mSession != null) mSession.write(new byte[]{(byte) c});
+                    } else if (c >= 32) {
+                        onCharInput(c);
+                    }
+                }
+            }
+            @Override
+            public void onBackspace() {
+                CyberdeckActivity.this.onBackspace();
+            }
+        });
 
         setupGestures();
 
@@ -1230,17 +1256,19 @@ public class CyberdeckActivity extends Activity {
                 return true;
             }
 
-            // Quick terminal symbol shortcuts for physical Q5 keyboard:
-            // Alt + Space = Pipe '|' (so you don't even have to open the sym panel)
-            // Alt + Enter = Backslash '\'
-            if (event.isAltPressed()) {
-                if (keyCode == KeyEvent.KEYCODE_SPACE) {
-                    onCharInput('|');
-                    return true;
-                }
-                if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                    onCharInput('\\');
-                    return true;
+            // Quick terminal symbol shortcuts via Alt layer on Q5 physical keyboard.
+            // We resolve via getUnicodeChar(metaState) to catch what BB10 actually maps:
+            // Alt+Space → '|' , Alt+Enter → '\'
+            // (isAltPressed() alone doesn't reliably catch hardware Alt on BB10)
+            {
+                int metaState = event.getMetaState();
+                if ((metaState & KeyEvent.META_ALT_ON) != 0) {
+                    int altUnicode = event.getUnicodeChar(metaState);
+                    if (altUnicode == '|') { onCharInput('|'); return true; }
+                    if (altUnicode == '\\') { onCharInput('\\'); return true; }
+                    // Also keep explicit keycode fallbacks for Q5
+                    if (keyCode == KeyEvent.KEYCODE_SPACE) { onCharInput('|'); return true; }
+                    if (keyCode == KeyEvent.KEYCODE_ENTER) { onCharInput('\\'); return true; }
                 }
             }
 
@@ -1278,10 +1306,9 @@ public class CyberdeckActivity extends Activity {
                 return true;
             }
 
-            // Check if CTRL is active (Volume Down held, Sticky Ctrl on, or META_CTRL_ON)
-            boolean isCtrl = mVolumeDownHeld || mStickyCtrl || ((event.getMetaState() & KeyEvent.META_CTRL_ON) != 0);
+            // Check if CTRL is active (Volume Down held, or META_CTRL_ON from hardware)
+            boolean isCtrl = mVolumeDownHeld || ((event.getMetaState() & KeyEvent.META_CTRL_ON) != 0);
             if (isCtrl) {
-                mStickyCtrl = false;
                 mVolumeDownHeld = false; // Consumed as combination
                 int u = event.getUnicodeChar();
                 if (u <= 0 && keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
