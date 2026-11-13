@@ -37,6 +37,9 @@ public class CyberdeckActivity extends Activity {
     private final List<String> mHistory = new ArrayList<String>();
     private int mHistoryIndex = -1;
 
+    // Animation running flag
+    private volatile boolean mIsAnimating = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -112,6 +115,7 @@ public class CyberdeckActivity extends Activity {
     }
 
     private void restartSession(boolean reinstall) {
+        mIsAnimating = false;
         if (mSession != null) {
             mSession.kill();
         }
@@ -132,6 +136,10 @@ public class CyberdeckActivity extends Activity {
     // --- Line Editing & Commands Execution ---
 
     private void onCharInput(char c) {
+        if (mIsAnimating) {
+            mIsAnimating = false;
+            return;
+        }
         mInputLine.append(c);
         mTerminalView.scrollToBottom();
         mTerminalView.appendOutput(new byte[]{(byte) c}, 0, 1);
@@ -150,7 +158,123 @@ public class CyberdeckActivity extends Activity {
         mTerminalView.appendOutput(p, 0, p.length);
     }
 
+    private static String getPadding(int n) {
+        if (n <= 0) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) sb.append(' ');
+        return sb.toString();
+    }
+
+    private void playTrainAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String[] smoke = new String[]{"(@@) (  )  ", "  (@@@) () ", " ( ) (@@)  "};
+                for (int step = 0; step <= 36 && mIsAnimating; step += 2) {
+                    StringBuilder frame = new StringBuilder();
+                    frame.append("\u001B[2J\u001B[H\r\n\r\n\r\n\r\n");
+
+                    String pad = getPadding(step);
+                    String s = smoke[(step / 2) % 3];
+
+                    frame.append(pad).append("      ").append(s).append("\r\n");
+                    frame.append(pad).append("    ==== ____\r\n");
+                    frame.append(pad).append("  __I__n [___]]\r\n");
+                    frame.append(pad).append("-(_________)|  \r\n");
+                    frame.append(pad).append("  (O)---(O)    \r\n");
+                    frame.append("====================================================\r\n");
+
+                    final byte[] b = frame.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+                    try { Thread.sleep(75); } catch (Exception ignored) {}
+                }
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    private void playAquariumAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                for (int f = 0; f < 35 && mIsAnimating; f++) {
+                    int fish1X = (f * 2) % 36;
+                    int fish2X = 36 - ((f * 2) % 36);
+
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("\u001B[2J\u001B[H\r\n");
+                    sb.append("\u001B[1;36m~~~~~~~~~~~~~~~ ASCII AQUARIUM ~~~~~~~~~~~~~~~~\u001B[0m\r\n\r\n");
+
+                    // Row 1 (bubbles)
+                    sb.append(getPadding((f * 3) % 40)).append(".\r\n");
+
+                    // Row 2 (Fish 1 swimming right in yellow/gold)
+                    sb.append(getPadding(fish1X)).append("\u001B[1;33m><(((*>\u001B[0m\r\n");
+
+                    // Row 3 (bubbles)
+                    sb.append(getPadding((f * 5 + 10) % 40)).append("o\r\n");
+
+                    // Row 4 (Fish 2 swimming left in magenta)
+                    sb.append(getPadding(fish2X)).append("\u001B[1;35m<*)))><\u001B[0m\r\n");
+
+                    // Row 5 (small fish in cyan)
+                    sb.append(getPadding((fish1X + 16) % 40)).append("\u001B[1;36m><>\u001B[0m\r\n");
+
+                    // Row 6 (bubbles)
+                    sb.append(getPadding((f * 7 + 22) % 40)).append("O\r\n\r\n");
+
+                    // Swaying seaweed in green
+                    sb.append("\u001B[1;32m");
+                    if (f % 2 == 0) {
+                        sb.append("  ( ( (   ) ) )   ( ( (   ) ) )   ( ( (   ) ) ) \r\n");
+                        sb.append("   ) ) ) ( ( (     ) ) ) ( ( (     ) ) ) ( ( (  \r\n");
+                    } else {
+                        sb.append("   ) ) ) ( ( (     ) ) ) ( ( (     ) ) ) ( ( (  \r\n");
+                        sb.append("  ( ( (   ) ) )   ( ( (   ) ) )   ( ( (   ) ) ) \r\n");
+                    }
+                    sb.append("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\u001B[0m\r\n");
+
+                    final byte[] b = sb.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+                    try { Thread.sleep(90); } catch (Exception ignored) {}
+                }
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
     private void onEnter() {
+        if (mIsAnimating) {
+            mIsAnimating = false;
+            return;
+        }
+
         String cmd = mInputLine.toString().trim();
         mInputLine.setLength(0);
 
@@ -167,7 +291,19 @@ public class CyberdeckActivity extends Activity {
             return;
         }
 
-        // --- In-Memory ASCII and Hardware Utilities (Instant, 0% failure) ---
+        // --- Animated Unix Classics ---
+
+        if (cmd.equals("sl") || cmd.equals("train")) {
+            playTrainAnimation();
+            return;
+        }
+
+        if (cmd.equals("fish") || cmd.equals("aqua") || cmd.equals("aquarium")) {
+            playAquariumAnimation();
+            return;
+        }
+
+        // --- Instant In-Memory ASCII and Hardware Utilities ---
 
         if (cmd.equals("skull")) {
             String skull =
@@ -286,9 +422,10 @@ public class CyberdeckActivity extends Activity {
                 "\r\n================================================\r\n" +
                 "  QCyberdeck Commands Reference\r\n" +
                 "================================================\r\n" +
-                "  Telemetry: battery, sysinfo, uname -a, uptime, free, df -h\r\n" +
-                "  Identity : whoami, id\r\n" +
+                "  Animated : sl (train), fish (asciiquarium)\r\n" +
                 "  ASCII    : skull, cowsay <msg>, deck, clock, matrix\r\n" +
+                "  Telemetry: battery, sysinfo, uname -a, uptime\r\n" +
+                "  Identity : whoami, id\r\n" +
                 "  Files    : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
                 "  Network  : ifconfig, netstat, ping, nc, wget\r\n" +
                 "  Archives : tar -czvf, gzip\r\n" +
@@ -308,6 +445,10 @@ public class CyberdeckActivity extends Activity {
     }
 
     private void onCtrlC() {
+        if (mIsAnimating) {
+            mIsAnimating = false;
+            return;
+        }
         mInputLine.setLength(0);
         mTerminalView.scrollToBottom();
         mTerminalView.appendOutput(new byte[]{'^', 'C', '\r', '\n'}, 0, 4);
@@ -397,8 +538,12 @@ public class CyberdeckActivity extends Activity {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
 
-            // Hardware Back button on BlackBerry: clear current typed line or send ESC
+            // Hardware Back button on BlackBerry: stop animation, or clear line, or send ESC
             if (keyCode == KeyEvent.KEYCODE_BACK) {
+                if (mIsAnimating) {
+                    mIsAnimating = false;
+                    return true;
+                }
                 if (mInputLine.length() > 0) {
                     replaceInputLine("");
                 } else if (mSession != null) {
@@ -429,6 +574,10 @@ public class CyberdeckActivity extends Activity {
             }
 
             if (keyCode == KeyEvent.KEYCODE_ESCAPE) {
+                if (mIsAnimating) {
+                    mIsAnimating = false;
+                    return true;
+                }
                 if (mSession != null) mSession.write(new byte[]{0x1B});
                 return true;
             }
@@ -508,6 +657,7 @@ public class CyberdeckActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        mIsAnimating = false;
         if (mSession != null) {
             mSession.kill();
         }
