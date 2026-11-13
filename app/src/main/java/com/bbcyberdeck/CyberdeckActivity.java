@@ -41,6 +41,10 @@ public class CyberdeckActivity extends Activity {
     // Animation running flag
     private volatile boolean mIsAnimating = false;
 
+    // BlackBerry Q5 Hardware Ctrl modifiers
+    private volatile boolean mVolumeDownHeld = false;
+    private volatile boolean mStickyCtrl = false;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -1189,6 +1193,20 @@ public class CyberdeckActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
+        // Hardware Volume Down button on BlackBerry: acts as CTRL modifier or tap for instant Ctrl+C
+        if (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                mVolumeDownHeld = true;
+                return true;
+            } else if (event.getAction() == KeyEvent.ACTION_UP) {
+                if (mVolumeDownHeld) {
+                    mVolumeDownHeld = false;
+                    onCtrlC(); // Tapping Volume Down sends Ctrl+C!
+                }
+                return true;
+            }
+        }
+
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             int keyCode = event.getKeyCode();
 
@@ -1209,6 +1227,13 @@ public class CyberdeckActivity extends Activity {
             // Volume Up cycles terminal theme
             if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
                 mTerminalView.cycleTheme();
+                return true;
+            }
+
+            // Physical SYM or $ key toggles sticky CTRL mode
+            if (keyCode == KeyEvent.KEYCODE_SYM || keyCode == KeyEvent.KEYCODE_POUND) {
+                mStickyCtrl = !mStickyCtrl;
+                Toast.makeText(this, mStickyCtrl ? "[CTRL] Mode: ON" : "[CTRL] Mode: OFF", Toast.LENGTH_SHORT).show();
                 return true;
             }
 
@@ -1246,23 +1271,30 @@ public class CyberdeckActivity extends Activity {
                 return true;
             }
 
-            // Check if CTRL is pressed on hardware keyboard
-            if ((event.getMetaState() & KeyEvent.META_CTRL_ON) != 0) {
+            // Check if CTRL is active (Volume Down held, Sticky Ctrl on, or META_CTRL_ON)
+            boolean isCtrl = mVolumeDownHeld || mStickyCtrl || ((event.getMetaState() & KeyEvent.META_CTRL_ON) != 0);
+            if (isCtrl) {
+                mStickyCtrl = false;
+                mVolumeDownHeld = false; // Consumed as combination
                 int u = event.getUnicodeChar();
-                if (u == 'c' || u == 'C' || keyCode == KeyEvent.KEYCODE_C) {
+                if (u <= 0 && keyCode >= KeyEvent.KEYCODE_A && keyCode <= KeyEvent.KEYCODE_Z) {
+                    u = 'a' + (keyCode - KeyEvent.KEYCODE_A);
+                }
+                char lower = Character.toLowerCase((char) u);
+                if (lower == 'c' || keyCode == KeyEvent.KEYCODE_C) {
                     onCtrlC();
                     return true;
                 }
-                if (u == 'l' || u == 'L' || keyCode == KeyEvent.KEYCODE_L) {
+                if (lower == 'l' || keyCode == KeyEvent.KEYCODE_L) {
                     mTerminalView.clearScreen();
                     return true;
                 }
-                if (u >= 'a' && u <= 'z') {
-                    byte ctrlCode = (byte) (u - 'a' + 1);
-                    if (mSession != null) mSession.write(new byte[]{ctrlCode});
+                if (lower == 'u' || keyCode == KeyEvent.KEYCODE_U) {
+                    replaceInputLine("");
                     return true;
-                } else if (u >= 'A' && u <= 'Z') {
-                    byte ctrlCode = (byte) (u - 'A' + 1);
+                }
+                if (lower >= 'a' && lower <= 'z') {
+                    byte ctrlCode = (byte) (lower - 'a' + 1);
                     if (mSession != null) mSession.write(new byte[]{ctrlCode});
                     return true;
                 }
