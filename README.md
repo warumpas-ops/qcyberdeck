@@ -15,40 +15,51 @@
 - **⌨️ 100% Physical Keyboard Native**:
   - Full BlackBerry 35-key physical keyboard support.
   - Custom `BaseInputConnection` pipeline routing the native BB10 **`SYM` panel** directly into the terminal line editor for all extended programming punctuation (`|`, `\`, `~`, `^`, `{`, `}`, `[`, `]`).
+- **📦 Native Package Manager (`pkg`)**:
+  - Download and install static ARMv7 binaries on the fly without needing `apt` or root:
+    - `pkg list` — View installed and repository packages
+    - `pkg install <name>` — Live download with progress bar straight to `/system/usr/bin/`
+    - `pkg remove <name>` — Remove an installed package
+  - **Online Repository**: `curl` (HTTPS/TLS), `htop` (visual process monitor), `vim` (modal editor), `ncdu` (disk analyzer), `tcpdump` (packet capture), `socat` (socket relay), `strace` (syscall tracer), `iperf` (bandwidth speed tester).
+- **🔐 Dropbear SSH Suite & Git (Pre-installed)**:
+  - `ssh` (`dbclient`): Direct secure shell into remote servers, Raspberry Pis, and homelabs.
+  - `scp`: Secure file transfers over SSH.
+  - `dropbearkey`: Generate RSA/ECDSA/ED25519 authentication keys.
+  - `git`: Full static ARMv7 Git suite (clone, commit, diff, push).
+  - `nano`: GNU Nano text editor formatted for 720×720 square LCDs.
 - **📟 Direct Native Shell (Zero-PRoot Architecture)**:
   - Bypasses QNX microkernel `ptrace()` limitations (which trigger signal 11 SIGSEGV on PRoot).
   - Direct execution via `/system/bin/sh` paired with a static Musl BusyBox suite.
 - **📺 Authentic Vintage CRT Phosphor Themes**:
-  - Double-tap the touchscreen anytime to switch themes:
+  - Double-tap the touchscreen anytime to cycle themes:
     - 🟢 **Matrix Green** (P1 Phosphor `#00FF66`)
     - 🟠 **Amber CRT** (P3 Phosphor `#FFB000`)
     - 🔵 **Cyber Blue** (Cyan `#00D2FF`)
     - ⚪ **Classic White** (`#E6EDF3`)
-- **🚂 Canonical Ubuntu ASCII Animation Suite**:
-  - **`sl` / `train`**: Authentic Toyoda Masashi D51 steam locomotive with 6-phase wheel rotation, smoke physics, and coal tender car.
-  - **`asciiquarium` / `fish` / `aqua`**: Kirk Baucom & Joan Stark underwater ASCII world with animated fish, bubbles, Atlantis castle, swimming ducks, and seaweed.
-  - **`cmatrix` / `matrix`**: Chris Allegretta digital falling green rain.
-  - **`aafire` / `fire`**: Jan Hubicka heat diffusion ASCII fire simulation.
-  - **`pipes` / `pipes.sh`**: Matthew Simpson multi-color box-drawing pipe network.
-  - **`nyancat`**: K. Lange animated Nyan Cat with scrolling rainbow trail.
-  - **`fortune` | `cowsay`**: Tony Monroe talking cow with built-in fortune quotes database.
-  - **One-Tap Exit**: Tap **any key** on the physical keyboard to immediately exit animations and return to the prompt.
-- **🔋 Hardware & System Tooling**:
-  - `battery`: Direct BatteryManager sticky intent readout (battery %, health, temperature, charging state) without Android permission denials.
-  - `whoami` & `id`: Root identity emulation (`root@q5:~# `).
-  - Complete BusyBox Unix suite: `ls`, `cat`, `grep`, `vi`, `ps`, `top`, `df`, `free`, `ping`, `tar`, `gzip`, etc.
+- **🚂 Canonical Linux ASCII Art & Animations**:
+  - **`neofetch` / `fastfetch`**: Custom Cyberdeck system spec & ANSI hardware card.
+  - **`cbonsai` / `bonsai`**: Animated step-by-step growing bonsai tree simulation.
+  - **`dragon`**: Massive fire-breathing ASCII dragon adapting to your active phosphor theme.
+  - **`sl` / `train`**: Authentic Toyoda Masashi D51 steam locomotive with 6-phase wheel rotation and coal tender.
+  - **`asciiquarium` / `fish` / `aqua`**: Underwater ASCII world with swimming fish, ducks, and bubbles.
+  - **`cmatrix` / `matrix`**: Falling digital green rain.
+  - **`aafire` / `fire`**: Jan Hubicka heat diffusion ASCII fire.
+  - **`pipes` / `pipes.sh`**: Multi-color box-drawing pipe network.
+  - **`nyancat`**: Animated Nyan Cat with scrolling rainbow trail.
+  - **`fortune` | `cowsay`**: Tony Monroe talking cow with built-in fortune quotes.
+  - **One-Tap Exit**: Tap **any key** on the physical keyboard to immediately exit animations and return to the shell.
 - **📜 2,000-Line Scrollback Buffer**:
-  - Touch-drag up and down anywhere on the screen to review terminal history.
-  - Single tap snaps immediately back to the active prompt.
+  - Smooth capacitive touch scrolling with a hard-stop boundary at line 1 (no empty black void).
 
 ---
 
-## ⌨️ Keyboard & Gesture Controls
+## 🎮 Controls & Shortcuts
 
-| Key / Gesture | Action | Description |
-|---|---|---|
-| **`SYM`** | **Symbol Sheet** | Opens native BlackBerry symbol picker with instant character insertion |
-| **Any Key** | **Stop Animation** | Immediately stops running animations (`sl`, `fish`, `matrix`, etc.) |
+| Action | Function | Details |
+| :--- | :--- | :--- |
+| **`SYM` Key** | **Symbol Grid** | Opens BB10 symbol grid for pipe (`\|`), backslash (`\`), brackets (`[]`), tilde (`~`) |
+| **`Alt` + Key** | **Number / Symbol** | Types numbers (`1`–`9`, `0`) and alternate punctuation directly |
+| **Any Key** | **Stop Animation** | Immediately stops running animations (`sl`, `fish`, `matrix`, `bonsai`, etc.) |
 | **`Back` Key** | **Cancel / Clear** | Clears input line or cancels active running process |
 | **`Enter`** | **Execute** | Submits command line to shell |
 | **`Del` / Backspace** | **Backspace** | Deletes preceding character |
@@ -64,7 +75,7 @@
 
 ## 📦 Installation
 
-1. Download the latest **`QCyberdeck-v3.4.0.apk`** from [GitHub Releases](https://github.com/warumpas-ops/qcyberdeck/releases/latest).
+1. Download the latest **`QCyberdeck-v3.7.0.apk`** from [GitHub Releases](https://github.com/warumpas-ops/qcyberdeck/releases/latest).
 2. Transfer the `.apk` file to your BlackBerry device (via Micro-USB, SD Card, or BlackBerry 10 Browser).
 3. Open the native **File Manager** app on your BlackBerry and tap the `.apk`.
 4. Tap **Install** in the top right corner.
@@ -80,8 +91,8 @@
 BlackBerry 10 runs on the **QNX Neutrino RTOS**, which implements a strict subset of Linux system calls inside its Android 4.3 runtime sandbox (`runtime.qnx`). 
 
 - **Why PRoot Fails**: Standard Linux rootfs wrappers (PRoot, Termux PRoot) rely on `ptrace(PTRACE_SYSCALL)`. The QNX kernel does not implement ptrace syscall traps, immediately terminating processes with **Signal 11 (SIGSEGV)**.
-- **The QCyberdeck Solution**: QCyberdeck bypasses ptrace entirely by spawning `/system/bin/sh` directly via Java `ProcessBuilder`, pre-populating environment paths (`/system/bin:/system/xbin`), and bundling a standalone Musl-libc static BusyBox binary.
-- **Java Terminal Driver**: Terminal emulation, local line editing, ANSI SGR color parsing (30–37, foreground, background), cursor positioning, and ASCII animations are executed within an in-memory Java pipeline, guaranteeing zero native crashes and sub-millisecond input response.
+- **The QCyberdeck Solution**: QCyberdeck bypasses ptrace entirely by spawning `/system/bin/sh` directly via Java `ProcessBuilder`, pre-populating environment paths (`/system/bin:/system/xbin:/data/data/com.bbcyberdeck/files/usr/bin`), and bundling a standalone Musl-libc static BusyBox binary.
+- **Java Terminal Driver**: Terminal emulation, local line editing, ANSI SGR color parsing, cursor positioning, and ASCII animations are executed within an in-memory Java pipeline, guaranteeing zero native crashes and sub-millisecond input response.
 
 ---
 
