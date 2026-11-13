@@ -215,7 +215,9 @@ public class TerminalView extends View {
                     mIsDragging = true;
                     int lineDelta = (int) (deltaY / mCharHeight);
                     if (lineDelta != 0) {
-                        mScrollOffset = Math.max(0, Math.min(mLines.size() - 5, mScrollOffset + lineDelta));
+                        int visibleRows = Math.max(1, (int) (getHeight() / mCharHeight));
+                        int maxScroll = Math.max(0, mLines.size() - visibleRows);
+                        mScrollOffset = Math.max(0, Math.min(maxScroll, mScrollOffset + lineDelta));
                         mLastTouchY = event.getY();
                         postInvalidate();
                     }

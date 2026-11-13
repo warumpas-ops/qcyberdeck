@@ -877,6 +877,33 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
+    // Authentic Tony Monroe cowsay -f dragon for Linux
+    private void printDragon(String msg) {
+        StringBuilder sb = new StringBuilder("\r\n ");
+        for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+        sb.append("\r\n< ").append(msg).append(" >\r\n ");
+        for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+        sb.append("\r\n");
+        sb.append("\u001B[1;31m");
+        sb.append("         \\                    / \\  //\\\r\n");
+        sb.append("          \\    |\\___/|      /   \\//  \\\\\r\n");
+        sb.append("               /0  0  \\__  /    //  | \\ \\\r\n");
+        sb.append("              /     /  \\/_/    //   |  \\  \\\r\n");
+        sb.append("              @_^_@'/   \\/_   //    |   \\   \\\r\n");
+        sb.append("              //_^_/     \\/_ //     |    \\    \\\r\n");
+        sb.append("           ( //) |        \\///      |     \\     \\\r\n");
+        sb.append("         ( / /) _|_ /   )  //       |      \\     _\\\r\n");
+        sb.append("       ( // /) '/,_ _ _/  ( ; -.    |    _ _\\.-~\r\n");
+        sb.append("     (( / / )) ,-{        _      `-.|.-~-.\r\n");
+        sb.append("    (( // / ))  '/\\      /                 ~-.\r\n");
+        sb.append("    (( /// ))      `.   {            }\r\n");
+        sb.append("     (( / ))     .----~-.\\        \\-`\r\n");
+        sb.append("\u001B[0m\r\n");
+        byte[] b = sb.toString().getBytes();
+        mTerminalView.appendOutput(b, 0, b.length);
+        printPrompt();
+    }
+
     // Authentic Linux Neofetch / Fastfetch for BlackBerry 10
     private void printNeofetch() {
         Intent bi = registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
@@ -1209,6 +1236,13 @@ public class CyberdeckActivity extends Activity {
             return;
         }
 
+        if (cmd.startsWith("dragon")) {
+            String msg = cmd.length() > 6 ? cmd.substring(6).trim() : "Rawr! BlackBerry Cyberdeck online.";
+            if (msg.isEmpty()) msg = "Rawr! BlackBerry Cyberdeck online.";
+            printDragon(msg);
+            return;
+        }
+
         if (cmd.equals("deck")) {
             String deck =
                 "\r\n" +
@@ -1290,6 +1324,7 @@ public class CyberdeckActivity extends Activity {
                 "  QCyberdeck Canonical Ubuntu Extensions\r\n" +
                 "================================================\r\n" +
                 "  Ubuntu Classics : sl, asciiquarium, cmatrix, aafire, pipes, nyancat, cbonsai\r\n" +
+                "  ASCII Animals   : dragon <msg>, cowsay <msg>, cowthink <msg>, fortune | cowsay\r\n" +
                 "  System & Info   : neofetch, battery, sysinfo, uname -a, uptime, whoami\r\n" +
                 "  ASCII Fun       : fortune, cowsay <msg>, cowthink <msg>, skull, deck, clock\r\n" +
                 "  Telemetry       : battery, sysinfo, uname -a, uptime\r\n" +
