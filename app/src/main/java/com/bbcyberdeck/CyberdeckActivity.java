@@ -20,6 +20,7 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Random;
 
 public class CyberdeckActivity extends Activity {
 
@@ -509,6 +510,357 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
+    // Authentic Chris Allegretta CMATRIX (from Ubuntu 'cmatrix' package)
+    private void playMatrixAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int COLS = 54;
+                final int ROWS = 22;
+                final Random rng = new Random();
+                final int[] headY = new int[COLS];
+                final int[] length = new int[COLS];
+                final char[] glyphs = "0123456789ABCDEFHIJKLMNOPQRSTUVWXYZ@#$%&*+-=~".toCharArray();
+
+                for (int c = 0; c < COLS; c++) {
+                    headY[c] = -rng.nextInt(ROWS);
+                    length[c] = 5 + rng.nextInt(12);
+                }
+
+                while (mIsAnimating) {
+                    char[][] grid = new char[ROWS][COLS];
+                    int[][] colorGrid = new int[ROWS][COLS]; // 0=none, 1=white head, 2=bright green, 3=dim green
+
+                    for (int c = 0; c < COLS; c++) {
+                        headY[c]++;
+                        if (headY[c] - length[c] >= ROWS) {
+                            headY[c] = -rng.nextInt(10);
+                            length[c] = 5 + rng.nextInt(12);
+                        }
+                        for (int i = 0; i < length[c]; i++) {
+                            int r = headY[c] - i;
+                            if (r >= 0 && r < ROWS) {
+                                grid[r][c] = glyphs[rng.nextInt(glyphs.length)];
+                                colorGrid[r][c] = (i == 0) ? 1 : (i < 4) ? 2 : 3;
+                            }
+                        }
+                    }
+
+                    StringBuilder sb = new StringBuilder("\u001B[2J\u001B[H");
+                    for (int r = 0; r < ROWS; r++) {
+                        int lastColor = -1;
+                        for (int c = 0; c < COLS; c++) {
+                            char ch = grid[r][c] == 0 ? ' ' : grid[r][c];
+                            int col = colorGrid[r][c];
+                            if (col != lastColor) {
+                                if (col == 1) sb.append("\u001B[1;37m");       // Bright white head
+                                else if (col == 2) sb.append("\u001B[1;32m");  // Bright matrix green
+                                else if (col == 3) sb.append("\u001B[0;32m");  // Dim phosphor green
+                                else sb.append("\u001B[0m");
+                                lastColor = col;
+                            }
+                            sb.append(ch);
+                        }
+                        sb.append("\u001B[0m\r\n");
+                    }
+
+                    final byte[] b = sb.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+
+                    try { Thread.sleep(55); } catch (Exception ignored) {}
+                }
+
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    // Authentic AAlib AAFIRE (from Ubuntu 'libaa-bin' package)
+    private void playFireAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int COLS = 54;
+                final int ROWS = 22;
+                final Random rng = new Random();
+                final int[] heat = new int[COLS * ROWS];
+                final char[] fireChars = " .:;+=xX$&@".toCharArray();
+
+                while (mIsAnimating) {
+                    // Feed fuel to bottom row
+                    for (int c = 0; c < COLS; c++) {
+                        heat[(ROWS - 1) * COLS + c] = rng.nextInt(100) > 25 ? 255 : 0;
+                    }
+
+                    // Diffuse upwards with cooling
+                    for (int r = 0; r < ROWS - 1; r++) {
+                        for (int c = 0; c < COLS; c++) {
+                            int left = heat[(r + 1) * COLS + ((c - 1 + COLS) % COLS)];
+                            int right = heat[(r + 1) * COLS + ((c + 1) % COLS)];
+                            int below = heat[(r + 1) * COLS + c];
+                            int below2 = heat[Math.min(ROWS - 1, r + 2) * COLS + c];
+                            int avg = (left + right + below + below2) / 4;
+                            heat[r * COLS + c] = Math.max(0, avg - rng.nextInt(4));
+                        }
+                    }
+
+                    StringBuilder sb = new StringBuilder("\u001B[2J\u001B[H");
+                    for (int r = 0; r < ROWS; r++) {
+                        int lastColor = -1;
+                        for (int c = 0; c < COLS; c++) {
+                            int h = heat[r * COLS + c];
+                            int color = (h < 40) ? 0 : (h < 100) ? 1 : (h < 180) ? 2 : (h < 230) ? 3 : 4;
+                            if (color != lastColor) {
+                                if (color == 0) sb.append("\u001B[0;30m");      // Dark gray
+                                else if (color == 1) sb.append("\u001B[0;31m"); // Dark red
+                                else if (color == 2) sb.append("\u001B[1;31m"); // Bright red
+                                else if (color == 3) sb.append("\u001B[1;33m"); // Bright yellow
+                                else sb.append("\u001B[1;37m");                 // Hot white
+                                lastColor = color;
+                            }
+                            int charIdx = (h * fireChars.length) / 256;
+                            if (charIdx >= fireChars.length) charIdx = fireChars.length - 1;
+                            sb.append(fireChars[charIdx]);
+                        }
+                        sb.append("\u001B[0m\r\n");
+                    }
+
+                    final byte[] b = sb.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+
+                    try { Thread.sleep(45); } catch (Exception ignored) {}
+                }
+
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    // Authentic Matthew Simpson PIPES.SH (from Ubuntu 'pipes.sh' package)
+    private void playPipesAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int COLS = 54;
+                final int ROWS = 22;
+                final Random rng = new Random();
+
+                final char[][] turnChars = {
+                    // up=0: left->3, right->1
+                    {'┃', '┏', '┃', '┓'},
+                    // right=1: up->0, down->2
+                    {'┛', '━', '┓', '━'},
+                    // down=2: left->3, right->1
+                    {'┃', '┗', '┃', '┛'},
+                    // left=3: up->0, down->2
+                    {'┗', '━', '┏', '━'}
+                };
+                final char[] straightChars = {'┃', '━', '┃', '━'};
+                final String[] colors = {
+                    "\u001B[1;31m", "\u001B[1;32m", "\u001B[1;33m",
+                    "\u001B[1;34m", "\u001B[1;35m", "\u001B[1;36m"
+                };
+
+                final int PIPE_COUNT = 3;
+                final int[] px = new int[PIPE_COUNT];
+                final int[] py = new int[PIPE_COUNT];
+                final int[] pdir = new int[PIPE_COUNT]; // 0=up, 1=right, 2=down, 3=left
+                final int[] pcol = new int[PIPE_COUNT];
+
+                for (int i = 0; i < PIPE_COUNT; i++) {
+                    px[i] = rng.nextInt(COLS);
+                    py[i] = rng.nextInt(ROWS);
+                    pdir[i] = rng.nextInt(4);
+                    pcol[i] = i % colors.length;
+                }
+
+                char[][] screen = new char[ROWS][COLS];
+                int[][] colorScreen = new int[ROWS][COLS];
+                for (int r = 0; r < ROWS; r++) {
+                    for (int c = 0; c < COLS; c++) {
+                        screen[r][c] = ' ';
+                        colorScreen[r][c] = -1;
+                    }
+                }
+
+                while (mIsAnimating) {
+                    for (int i = 0; i < PIPE_COUNT; i++) {
+                        int oldDir = pdir[i];
+                        int newDir = oldDir;
+                        if (rng.nextInt(100) < 25) {
+                            newDir = (oldDir + (rng.nextBoolean() ? 1 : 3)) % 4;
+                        }
+                        char ch = (oldDir == newDir) ? straightChars[newDir] : turnChars[oldDir][newDir];
+                        screen[py[i]][px[i]] = ch;
+                        colorScreen[py[i]][px[i]] = pcol[i];
+
+                        pdir[i] = newDir;
+                        if (newDir == 0) py[i] = (py[i] - 1 + ROWS) % ROWS;
+                        else if (newDir == 1) px[i] = (px[i] + 1) % COLS;
+                        else if (newDir == 2) py[i] = (py[i] + 1) % ROWS;
+                        else if (newDir == 3) px[i] = (px[i] - 1 + COLS) % COLS;
+                    }
+
+                    StringBuilder sb = new StringBuilder("\u001B[2J\u001B[H");
+                    for (int r = 0; r < ROWS; r++) {
+                        int lastColor = -1;
+                        for (int c = 0; c < COLS; c++) {
+                            int ci = colorScreen[r][c];
+                            if (ci != lastColor) {
+                                if (ci >= 0 && ci < colors.length) sb.append(colors[ci]);
+                                else sb.append("\u001B[0m");
+                                lastColor = ci;
+                            }
+                            sb.append(screen[r][c]);
+                        }
+                        sb.append("\u001B[0m\r\n");
+                    }
+
+                    final byte[] b = sb.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+
+                    try { Thread.sleep(60); } catch (Exception ignored) {}
+                }
+
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    // Authentic K. Lange NYANCAT (from Ubuntu 'nyancat' package)
+    private void playNyanCatAnimation() {
+        mIsAnimating = true;
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                final int COLS = 54;
+                final int ROWS = 22;
+                final String[] catFrames = {
+                    ",------,\r\n|   /\\_/\\\r\n~|__( ^ .^)\r\n \"\"  \"\"",
+                    ",------,\r\n|   /\\_/\\\r\n~|__( - .^)\r\n  \"\"  \"\""
+                };
+
+                final String[] rainbowColors = {
+                    "\u001B[1;31m", "\u001B[1;33m", "\u001B[1;33m",
+                    "\u001B[1;32m", "\u001B[1;36m", "\u001B[1;35m"
+                };
+
+                int frame = 0;
+                while (mIsAnimating) {
+                    frame++;
+                    StringBuilder sb = new StringBuilder("\u001B[2J\u001B[H");
+
+                    // 1. Twinkling stars in deep space
+                    char[][] grid = new char[ROWS][COLS];
+                    for (int r = 0; r < ROWS; r++) {
+                        for (int c = 0; c < COLS; c++) grid[r][c] = ' ';
+                    }
+                    for (int s = 0; s < 12; s++) {
+                        int sr = (s * 7 + frame / 2) % (ROWS - 2);
+                        int sc = (COLS - ((frame * 2 + s * 9) % COLS) + COLS) % COLS;
+                        grid[sr][sc] = (s % 3 == 0) ? '+' : (s % 3 == 1) ? '*' : '.';
+                    }
+
+                    // 2. Render rows with waving rainbow trail
+                    int rainbowStartRow = 8;
+                    int catCol = 28;
+                    for (int r = 0; r < ROWS; r++) {
+                        int rOffset = r - rainbowStartRow;
+                        if (rOffset >= 0 && rOffset < 6) {
+                            String colStr = rainbowColors[rOffset];
+                            sb.append(colStr);
+                            int wave = (int) Math.sin((frame + rOffset) * 0.5) * 1;
+                            for (int c = 0; c < catCol; c++) {
+                                sb.append((c % 2 == 0) ? '=' : '-');
+                            }
+                            sb.append("\u001B[0m");
+                            // Cat body parts
+                            if (rOffset == 0) sb.append("\u001B[1;37m,------,\u001B[0m");
+                            else if (rOffset == 1) sb.append("\u001B[1;37m|  \u001B[1;35m/\\_/\\\u001B[0m");
+                            else if (rOffset == 2) sb.append("\u001B[1;37m~|__(\u001B[1;33m ^ .\u001B[1;37m^)\u001B[0m");
+                            else if (rOffset == 3) sb.append("\u001B[1;37m \"\"  \"\"\u001B[0m");
+                            sb.append("\r\n");
+                        } else {
+                            sb.append(new String(grid[r])).append("\r\n");
+                        }
+                    }
+
+                    final byte[] b = sb.toString().getBytes();
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            mTerminalView.appendOutput(b, 0, b.length);
+                        }
+                    });
+
+                    try { Thread.sleep(80); } catch (Exception ignored) {}
+                }
+
+                mIsAnimating = false;
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        mTerminalView.appendOutput("\r\n".getBytes(), 0, 2);
+                        printPrompt();
+                    }
+                });
+            }
+        }).start();
+    }
+
+    // Classic Unix Fortunes Database
+    private static final String[] FORTUNES = {
+        "The best way to predict the future is to invent it. -- Alan Kay",
+        "Simplicity is prerequisite for reliability. -- Edsger W. Dijkstra",
+        "Unix is simple. It just takes a genius to understand its simplicity. -- Dennis Ritchie",
+        "There are two ways of constructing a software design: One way is to make it so simple that there are obviously no deficiencies, and the other way is to make it so complicated that there are no obvious deficiencies. -- C.A.R. Hoare",
+        "Talk is cheap. Show me the code. -- Linus Torvalds",
+        "Any fool can write code that a computer can understand. Good programmers write code that humans can understand. -- Martin Fowler",
+        "Software is like sex: it's better when it's free. -- Linus Torvalds",
+        "BlackBerry Q5: Real physical keyboard, real terminal, real freedom.",
+        "A computer lets you make more mistakes faster than any other invention with the possible exceptions of handguns and Tequila. -- Mitch Radcliffe",
+        "There are 10 types of people in the world: those who understand binary, and those who don't."
+    };
+
     private void onEnter() {
         if (mIsAnimating) {
             mIsAnimating = false;
@@ -531,7 +883,7 @@ public class CyberdeckActivity extends Activity {
             return;
         }
 
-        // --- Animated Unix Classics ---
+        // --- Canonical Ubuntu Terminal Classics ---
 
         if (cmd.equals("sl") || cmd.equals("train")) {
             playTrainAnimation();
@@ -540,6 +892,68 @@ public class CyberdeckActivity extends Activity {
 
         if (cmd.equals("fish") || cmd.equals("aqua") || cmd.equals("aquarium") || cmd.equals("asciiquarium")) {
             playAquariumAnimation();
+            return;
+        }
+
+        if (cmd.equals("cmatrix") || cmd.equals("matrix")) {
+            playMatrixAnimation();
+            return;
+        }
+
+        if (cmd.equals("aafire") || cmd.equals("fire")) {
+            playFireAnimation();
+            return;
+        }
+
+        if (cmd.equals("pipes") || cmd.equals("pipes.sh")) {
+            playPipesAnimation();
+            return;
+        }
+
+        if (cmd.equals("nyancat")) {
+            playNyanCatAnimation();
+            return;
+        }
+
+        if (cmd.equals("fortune") || cmd.equals("fortune | cowsay")) {
+            Random rng = new Random();
+            String f = FORTUNES[rng.nextInt(FORTUNES.length)];
+            if (cmd.contains("cowsay")) {
+                StringBuilder sb = new StringBuilder("\r\n ");
+                for (int i = 0; i < f.length() + 2; i++) sb.append("-");
+                sb.append("\r\n< ").append(f).append(" >\r\n ");
+                for (int i = 0; i < f.length() + 2; i++) sb.append("-");
+                sb.append("\r\n        \\   ^__^\r\n");
+                sb.append("         \\  (oo)\\_______\r\n");
+                sb.append("            (__)\\       )\\/\\\r\n");
+                sb.append("                ||----w |\r\n");
+                sb.append("                ||     ||\r\n\r\n");
+                byte[] b = sb.toString().getBytes();
+                mTerminalView.appendOutput(b, 0, b.length);
+            } else {
+                String out = "\r\n" + f + "\r\n\r\n";
+                byte[] b = out.getBytes();
+                mTerminalView.appendOutput(b, 0, b.length);
+            }
+            printPrompt();
+            return;
+        }
+
+        if (cmd.startsWith("cowthink")) {
+            String msg = cmd.length() > 8 ? cmd.substring(8).trim() : "Thinking...";
+            if (msg.isEmpty()) msg = "Thinking...";
+            StringBuilder sb = new StringBuilder("\r\n ");
+            for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+            sb.append("\r\n( ").append(msg).append(" )\r\n ");
+            for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
+            sb.append("\r\n        o   ^__^\r\n");
+            sb.append("         o  (oo)\\_______\r\n");
+            sb.append("            (__)\\       )\\/\\\r\n");
+            sb.append("                ||----w |\r\n");
+            sb.append("                ||     ||\r\n\r\n");
+            byte[] b = sb.toString().getBytes();
+            mTerminalView.appendOutput(b, 0, b.length);
+            printPrompt();
             return;
         }
 
@@ -660,17 +1074,17 @@ public class CyberdeckActivity extends Activity {
         if (cmd.equals("help")) {
             String help =
                 "\r\n================================================\r\n" +
-                "  QCyberdeck Commands Reference\r\n" +
+                "  QCyberdeck Canonical Ubuntu Extensions\r\n" +
                 "================================================\r\n" +
-                "  Animated : sl (authentic Ubuntu train), asciiquarium (fish)\r\n" +
-                "  ASCII    : skull, cowsay <msg>, deck, clock, matrix\r\n" +
-                "  Telemetry: battery, sysinfo, uname -a, uptime\r\n" +
-                "  Identity : whoami, id\r\n" +
-                "  Files    : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
-                "  Network  : ifconfig, netstat, ping, nc, wget\r\n" +
-                "  Archives : tar -czvf, gzip\r\n" +
-                "  Tools    : grep, awk, sed, find, strings, hexdump\r\n" +
-                "  All 350+ : busybox --help\r\n" +
+                "  Ubuntu Classics : sl, asciiquarium, cmatrix, aafire, pipes, nyancat\r\n" +
+                "  ASCII Fun       : fortune, cowsay <msg>, cowthink <msg>, skull, deck, clock\r\n" +
+                "  Telemetry       : battery, sysinfo, uname -a, uptime\r\n" +
+                "  Identity        : whoami, id\r\n" +
+                "  Files           : tree, ls -la, pwd, cd, mkdir, rm, cp, mv, vi\r\n" +
+                "  Network         : ifconfig, netstat, ping, nc, wget\r\n" +
+                "  Archives        : tar -czvf, gzip\r\n" +
+                "  Tools           : grep, awk, sed, find, strings, hexdump\r\n" +
+                "  All 350+        : busybox --help\r\n" +
                 "================================================\r\n\r\n";
             byte[] b = help.getBytes();
             mTerminalView.appendOutput(b, 0, b.length);
