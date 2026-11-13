@@ -877,14 +877,13 @@ public class CyberdeckActivity extends Activity {
         }).start();
     }
 
-    // Authentic Tony Monroe cowsay -f dragon for Linux
+    // Authentic Tony Monroe cowsay -f dragon for Linux (adapts to active CRT theme)
     private void printDragon(String msg) {
         StringBuilder sb = new StringBuilder("\r\n ");
         for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
         sb.append("\r\n< ").append(msg).append(" >\r\n ");
         for (int i = 0; i < msg.length() + 2; i++) sb.append("-");
         sb.append("\r\n");
-        sb.append("\u001B[1;31m");
         sb.append("         \\                    / \\  //\\\r\n");
         sb.append("          \\    |\\___/|      /   \\//  \\\\\r\n");
         sb.append("               /0  0  \\__  /    //  | \\ \\\r\n");
@@ -897,8 +896,7 @@ public class CyberdeckActivity extends Activity {
         sb.append("     (( / / )) ,-{        _      `-.|.-~-.\r\n");
         sb.append("    (( // / ))  '/\\      /                 ~-.\r\n");
         sb.append("    (( /// ))      `.   {            }\r\n");
-        sb.append("     (( / ))     .----~-.\\        \\-`\r\n");
-        sb.append("\u001B[0m\r\n");
+        sb.append("     (( / ))     .----~-.\\        \\-`\r\n\r\n");
         byte[] b = sb.toString().getBytes();
         mTerminalView.appendOutput(b, 0, b.length);
         printPrompt();
